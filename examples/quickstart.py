@@ -8,6 +8,10 @@ from rlm import RLM
 from rlm.logger import RLMLogger
 
 load_dotenv()
+print("AZURE_OPENAI_API_KEY:", os.getenv("AZURE_OPENAI_API_KEY"))
+print("AZURE_OPENAI_ENDPOINT:", os.getenv("AZURE_OPENAI_ENDPOINT"))
+print("AZURE_OPENAI_API_VERSION:", os.getenv("AZURE_OPENAI_API_VERSION"))
+print("AZURE_OPENAI_DEPLOYMENT:", os.getenv("AZURE_OPENAI_DEPLOYMENT"))
 
 # Generate a large text file with a hidden secret number
 secret_number = random.randint(100_000_000, 999_999_999)
@@ -17,17 +21,19 @@ filler_lines.insert(insert_at, f"SECRET_NUMBER={secret_number}")
 haystack = "\n".join(filler_lines)
 
 rlm = RLM(
-    backend="openai",
+    backend="azure_openai",
     backend_kwargs={
-        "model_name": "gpt-5-nano",
-        "api_key": os.getenv("OPENAI_API_KEY"),
+        "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
+        "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+        "api_version": os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
+        "deployment_name": os.getenv("AZURE_OPENAI_DEPLOYMENT"),  
+        "model_name": "gpt-4o",
     },
     environment="local",
     max_iterations=10,
     logger=RLMLogger(log_dir="./logs"),
     verbose=True,
 )
-
 result = rlm.completion(
     "The context contains ~50k lines of random text with a single line "
     "matching the pattern SECRET_NUMBER=<digits>. Find and return ONLY the "
