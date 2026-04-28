@@ -1,0 +1,92 @@
+[
+  {
+    "question": 1,
+    "domain": "Long In-context Learning",
+    "experiment": "depth1_iter30",
+    "predicted": "I'll run a query to the context to attempt a full translation of the sentence or extract relevant details.",
+    "ground_truth": "D",
+    "correct": false,
+    "time": 76.57620604199474
+  },
+  {
+    "question": 1,
+    "domain": "Long In-context Learning",
+    "experiment": "depth5_recursive",
+    "predicted": "To proceed, I need to finalize my process of analyzing the `context`. Let me query the context directly to identify and confirm the translation that matches the Kalamang sentence against the multiple-choice options.",
+    "ground_truth": "D",
+    "correct": false,
+    "time": 24.584136124991346
+  },
+  {
+    "question": 2,
+    "domain": "Multi-Document QA",
+    "experiment": "depth1_iter10",
+    "predicted": "FINAL(\"To provide a precise and accurate response to the user's query, I first need to inspect the context, extract key details, and analyze the findings step by step. However, without the ability to execute further tasks in this environment, I recommend focusing on strategic evolution elements such as telehealth implementations in crisis responses during the 2020-21 period and their long-term integration in the 2022-23 period. The answer would align closely with sustainability and innovation shifts observed between these periods.\")",
+    "ground_truth": "D",
+    "correct": false,
+    "time": 34.402189000014914
+  },
+  {
+    "question": 2,
+    "domain": "Multi-Document QA",
+    "experiment": "depth1_iter30",
+    "predicted": "FINAL_VAR(answer)",
+    "ground_truth": "D",
+    "correct": false,
+    "time": 122.36218941697734
+  },
+  {
+    "question": 2,
+    "domain": "Multi-Document QA",
+    "experiment": "depth2",
+    "predicted": "I will analyze the `context` to extract insights and answer the question directly.\n\nLet's start with the strategic priorities of the 2020-21 NSW Health Annual Reports regarding crisis management, telehealth, and related information. I will analyze this first, then proceed to the 2022-23 parts.",
+    "ground_truth": "D",
+    "correct": false,
+    "time": 28.298297583998647
+  },
+  {
+    "question": 2,
+    "domain": "Multi-Document QA",
+    "experiment": "depth5_recursive",
+    "predicted": "To properly analyze and answer, I must begin by breaking down the context into actionable text blocks that focus on the NSW Health Annual Reports for 2020-21 and 2022-23. This includes searching for and isolating these periods.\n\nLet\u2019s begin:",
+    "ground_truth": "D",
+    "correct": false,
+    "time": 32.87437854197924
+  },
+  {
+    "question": 3,
+    "domain": "Code Repository Understanding",
+    "experiment": "depth1_iter10",
+    "predicted": "I will begin by querying the `context` in one shot to identify the function and its recognized keyword arguments. Then, I will analyze the response to determine the correct answer. Let me execute this plan.",
+    "ground_truth": "B",
+    "correct": false,
+    "time": 29.63435712500359
+  },
+  {
+    "question": 3,
+    "domain": "Code Repository Understanding",
+    "experiment": "depth1_iter30",
+    "predicted": "D",
+    "ground_truth": "B",
+    "correct": false,
+    "time": 113.63569054100662
+  },
+  {
+    "question": 3,
+    "domain": "Code Repository Understanding",
+    "experiment": "depth2",
+    "predicted": "I will extract mentions of the function and its recognized keyword arguments from the context to determine the correct answer to the user's question. Let me begin by querying the context for detailed insights on this topic.",
+    "ground_truth": "B",
+    "correct": false,
+    "time": 32.76206941599958
+  },
+  {
+    "question": 3,
+    "domain": "Code Repository Understanding",
+    "experiment": "depth5_recursive",
+    "predicted": "I will query the first portion of the large `context` to search for mentions of the derivative function and identify its recognized keyword arguments.",
+    "ground_truth": "B",
+    "correct": false,
+    "time": 31.181737833976513
+  }
+]
