@@ -10,7 +10,7 @@ from rlm import RLM
 from rlm.logger import RLMLogger
 
 EXPERIMENTS = [
-    {"max_depth": 1, "max_iterations": 10,  "name": "depth1_iter10"},
+    {"max_depth": 1, "max_iterations": 50,  "name": "depth1_iter10"},
     {"max_depth": 1, "max_iterations": 30,  "name": "depth1_iter30"},
     {"max_depth": 2, "max_iterations": 10,  "name": "depth2"},
     {"max_depth": 5, "max_iterations": 10,  "name": "depth5_recursive"},
