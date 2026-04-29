@@ -12,8 +12,8 @@ from rlm.logger import RLMLogger
 EXPERIMENTS = [
     {"max_depth": 1, "max_iterations": 10,  "name": "depth1_iter10"},
     {"max_depth": 1, "max_iterations": 30,  "name": "depth1_iter30"},
-    {"max_depth": 2, "max_iterations": 30,  "name": "depth2"},
-    {"max_depth": 5, "max_iterations": 30,  "name": "depth5_recursive"},
+    {"max_depth": 2, "max_iterations": 10,  "name": "depth2"},
+    {"max_depth": 5, "max_iterations": 10,  "name": "depth5_recursive"},
 ]
 
 def build_prompt(question, choices, context):
@@ -87,7 +87,7 @@ def main():
 
             rlm = RLM(
                 backend="azure_openai",
-                backend_kwargs={"model_name": "gpt-4o"},
+                backend_kwargs={"model_name": "gpt-5-nano"},
                 max_depth=exp["max_depth"],
                 max_iterations=exp["max_iterations"],
                 logger=logger,
