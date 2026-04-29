@@ -87,7 +87,7 @@ def main():
 
             rlm = RLM(
                 backend="azure_openai",
-                backend_kwargs={"model_name": "gpt-5-nano"},
+                backend_kwargs={"model_name": "gpt-5"},
                 max_depth=exp["max_depth"],
                 max_iterations=exp["max_iterations"],
                 logger=logger,
