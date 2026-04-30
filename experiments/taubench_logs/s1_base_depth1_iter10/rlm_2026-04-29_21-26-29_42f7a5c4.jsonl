@@ -1,0 +1,1 @@
+{"type": "metadata", "timestamp": "2026-04-29T21:26:29.354926", "root_model": "gpt-4o", "max_depth": 1, "max_iterations": 10, "backend": "azure_openai", "backend_kwargs": {"model_name": "gpt-4o"}, "environment_type": "local", "environment_kwargs": {}, "other_backends": null}
