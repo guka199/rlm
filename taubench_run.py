@@ -14,7 +14,6 @@ from rlm.logger import RLMLogger
 # ---------------------------------------------------------------------------
 
 TRAJECTORY_FILE = "./tau-bench/historical_trajectories/gpt-4o-airline.json"
-QA_PAIRS_FILE = "./tau-bench/qa_pairs.jsonl"
 NUM_SAMPLES = 15
 SEED = 42
 
@@ -75,41 +74,12 @@ def load_qa_pairs(filepath):
     return qa_pairs
 
 
-def save_qa_pairs(qa_pairs, filepath):
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, "w") as f:
-        for pair in qa_pairs:
-            f.write(json.dumps(pair) + "\n")
-    print(f"Saved {len(qa_pairs)} QA pairs to {filepath}")
-
-
-def load_qa_pairs_from_jsonl(filepath):
-    with open(filepath) as f:
-        return [json.loads(line) for line in f if line.strip()]
-
-
-def get_qa_pairs():
-    if os.path.exists(QA_PAIRS_FILE):
-        print(f"Loading QA pairs from cache: {QA_PAIRS_FILE}")
-        qa_pairs = load_qa_pairs_from_jsonl(QA_PAIRS_FILE)
-        print(f"Total QA pairs loaded: {len(qa_pairs)}")
-    else:
-        print(f"No cache found, extracting from {TRAJECTORY_FILE}...")
-        qa_pairs = load_qa_pairs(TRAJECTORY_FILE)
-        print(f"Total QA pairs extracted: {len(qa_pairs)}")
-        save_qa_pairs(qa_pairs, QA_PAIRS_FILE)
-    return qa_pairs
-
-
 # ---------------------------------------------------------------------------
 # Build prompt
 # ---------------------------------------------------------------------------
 
 def build_prompt(qa_pair):
     lines = []
-
-    lines.append(f"Available tools: {', '.join(AVAILABLE_TOOLS)}")
-    lines.append("Given the conversation below, output the correct answer\n")
 
     for turn in qa_pair["context"]:
         role = turn["role"]
@@ -137,6 +107,12 @@ def build_prompt(qa_pair):
                 content = content[:200] + "..."
             lines.append(f"[TOOL RESULT ({turn.get('name', '?')})]: {content}")
 
+    lines.append(f"\nAvailable tools: {', '.join(AVAILABLE_TOOLS)}")
+    lines.append(
+        "\nGiven the conversation above, what is the agent's NEXT tool call?")
+    lines.append(
+        "Return only the tool name using FINAL(tool_name), e.g. FINAL(get_user_details).")
+
     return "\n".join(lines)
 
 
@@ -147,7 +123,9 @@ def build_prompt(qa_pair):
 def main():
     os.makedirs("./logs", exist_ok=True)
 
-    qa_pairs = get_qa_pairs()
+    print("Loading tau-bench trajectories...")
+    qa_pairs = load_qa_pairs(TRAJECTORY_FILE)
+    print(f"Total QA pairs extracted: {len(qa_pairs)}")
 
     rng = random.Random(SEED)
     samples = rng.sample(qa_pairs, NUM_SAMPLES)
@@ -191,7 +169,7 @@ def main():
 
             rlm = RLM(
                 backend="azure_openai",
-                backend_kwargs={"model_name": "gpt5"},
+                backend_kwargs={"model_name": "gpt-4o"},
                 max_depth=exp["max_depth"],
                 max_iterations=exp["max_iterations"],
                 logger=logger,
@@ -200,8 +178,16 @@ def main():
 
             result = rlm.completion(prompt)
 
-            prediction = result.response.strip().lower()
-            correct = prediction == ground_truth.lower()
+            raw = result.response.strip().lower()
+            # Exact match first; fall back to checking if the tool name appears in the response
+            if raw == ground_truth.lower():
+                prediction = raw
+            else:
+                prediction = next(
+                    (t for t in AVAILABLE_TOOLS if t.lower() in raw),
+                    raw,
+                )
+            correct = prediction.lower() == ground_truth.lower()
 
             print(f"Predicted: {prediction}")
             print(f"Correct:   {correct}")
