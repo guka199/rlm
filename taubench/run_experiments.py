@@ -11,7 +11,7 @@ Experiments:
 Usage:
     export AZURE_OPENAI_API_KEY=...
     export AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com/
-    export AZURE_OPENAI_DEPLOYMENT=gpt-5-nano
+    export AZURE_OPENAI_DEPLOYMENT=gpt-4o
     export AZURE_OPENAI_API_VERSION=2024-02-15-preview
 
     python run_experiments.py                       # all 3 experiments
@@ -66,7 +66,7 @@ def configure_azure() -> tuple[str, dict]:
     endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
     api_version = os.environ.get(
         "AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
-    deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-5-nano")
+    deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
 
     if not api_key:
         print("ERROR: AZURE_OPENAI_API_KEY not set.", file=sys.stderr)
@@ -113,13 +113,18 @@ send_certificate, transfer_to_human_agents\
 """
 
 
-def build_prompt(context: list[dict]) -> str:
-    """
-    Build a prompt string for the RLM.
-    We skip the system policy turn (it's long and distracts the RLM)
-    and only include the actual conversation turns.
-    The task question is embedded at the top so the RLM knows what to find.
-    """
+ROOT_PROMPT = (
+    "What is the next tool the agent should call? "
+    "Available tools: get_user_details, get_reservation_details, search_direct_flight, "
+    "search_onestop_flight, list_all_airports, calculate, think, book_reservation, "
+    "cancel_reservation, update_reservation_flights, update_reservation_baggages, "
+    "update_reservation_passengers, send_certificate, transfer_to_human_agents. "
+    "Use FINAL(tool_name) to answer with one tool name only."
+)
+
+
+def build_context(context: list[dict]) -> str:
+    """Build the conversation context string passed as `prompt` to RLM."""
     conv_lines = []
     for turn in context:
         role = turn.get("role", "unknown")
@@ -147,13 +152,7 @@ def build_prompt(context: list[dict]) -> str:
         "AIRLINE CUSTOMER SERVICE CONVERSATION:\n"
         "----------------------------------------\n"
         f"{conv}\n"
-        "----------------------------------------\n"
-        "Based on this conversation, what is the single next tool the agent should call?\n"
-        "Available tools: get_user_details, get_reservation_details, search_direct_flight, "
-        "search_onestop_flight, list_all_airports, calculate, think, book_reservation, "
-        "cancel_reservation, update_reservation_flights, update_reservation_baggages, "
-        "update_reservation_passengers, send_certificate, transfer_to_human_agents\n"
-        "Answer with FINAL(tool_name) — one tool name only."
+        "----------------------------------------"
     )
 
 
@@ -214,10 +213,10 @@ def run_experiment(config: dict, qa_pairs: list[dict], backend: str, backend_kwa
 
     with open(results_path, "a") as out:
         for i, qa in enumerate(remaining):
-            prompt = build_prompt(qa["context"])
+            prompt = build_context(qa["context"])
             try:
                 completion = rlm.completion(
-                    prompt, root_prompt="What is the next tool the agent should call? Use FINAL(tool_name) to answer with one tool name only.")
+                    prompt, root_prompt=ROOT_PROMPT)
                 raw = completion.response.strip()
                 # Extract tool name from FINAL(tool_name) if present, else take first word
                 m = re.search(r'FINAL\(([^)]+)\)', raw)
