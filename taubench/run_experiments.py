@@ -66,7 +66,7 @@ def configure_azure() -> tuple[str, dict]:
     endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
     api_version = os.environ.get(
         "AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
-    deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
+    deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-5")
 
     if not api_key:
         print("ERROR: AZURE_OPENAI_API_KEY not set.", file=sys.stderr)
