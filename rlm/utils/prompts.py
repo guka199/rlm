@@ -112,6 +112,8 @@ print(my_answer)
 If you're unsure what variables exist, you can call SHOW_VARS() in a repl block to see all available variables.
 
 Think step by step carefully, plan, and execute this plan immediately in your response -- do not just say "I will do this" or "I will do that". Output to the REPL environment and recursive LLMs as much as possible. Remember to explicitly answer the original query in your final answer.
+
+Once you have arrived at a solution and provided your final answer, print "STOP" during any remaining iterations instead of continuing to compute.
 """
 )
 
