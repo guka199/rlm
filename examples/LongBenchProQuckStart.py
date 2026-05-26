@@ -1,121 +1,177 @@
 import os
-import random
-import string
-
+import json
 from dotenv import load_dotenv
-
+from datasets import load_dataset
 from rlm import RLM
 from rlm.logger import RLMLogger
-from datasets import load_dataset
+
+load_dotenv()
 
 dataset = load_dataset("zai-org/LongBench-v2", split="train")
-load_dotenv()
-print("AZURE_OPENAI_API_KEY:", os.getenv("AZURE_OPENAI_API_KEY"))
-print("AZURE_OPENAI_ENDPOINT:", os.getenv("AZURE_OPENAI_ENDPOINT"))
-print("AZURE_OPENAI_API_VERSION:", os.getenv("AZURE_OPENAI_API_VERSION"))
-print("AZURE_OPENAI_DEPLOYMENT:", os.getenv("AZURE_OPENAI_DEPLOYMENT"))
 
-# Generate a large text file with a hidden secret number
-secret_number = random.randint(10_000_000, 99_999_999)
-filler_lines = ["".join(random.choices(string.ascii_lowercase + " ", k=120)) for _ in range(50_000)]
-insert_at = random.randint(len(filler_lines) // 3, 2 * len(filler_lines) // 3)
-filler_lines.insert(insert_at, f"SECRET_NUMBER={secret_number}")
-haystack = "\n".join(filler_lines)
+# Indices of multidoc_qa samples (256k, English) identified from dataset inspection
+# # multidoc_qa_samples = [2, 8, 15, 16, 18, 19]
+# multidoc_qa_samples = [16, 18, 19]
 
 
-if False: #GPT 4o if true and gpt 5 nano otherwise
+# for i in range(100):
+#     s = dataset[i]
+#     if "multi" in str(s.get("domain", "")).lower() and str(s.get("difficulty", "")).lower() == "easy":
+#         print(f"  idx={i}  difficulty={s.get('difficulty')}  Q: {s.get('question', '')[:120]}")
+# breakpoint()
+
+# SIMPLE MULTIDOC QUESTONS
+multidoc_qa_samples = [8, 18, 27, 28, 40, 52, 66, 69]
+multidoc_qa_samples = [69]
+selected_samples = [{"sample_idx": i, **dataset[i]} for i in multidoc_qa_samples]
+
+
+print(f"\nRunning {len(selected_samples)} multidoc QA samples:")
+for s in selected_samples:
+    print(f"  idx={s['sample_idx']}  domain={s.get('domain')}  sub_domain={s.get('sub_domain')}  length={s.get('length')}")
+
+
+# ---------------------------------------------------------------------------
+# Core evaluation function
+# ---------------------------------------------------------------------------
+
+def run_rlm_evaluation(
+    sample: dict,
+    max_depth: int = 1,
+    max_iterations: int = 10,
+    exp_name: str = "base",
+    model_name: str = "gpt-5",
+    log_dir: str = "./logs_LongBenchPro",
+) -> dict:
+    """
+    Run a single RLM completion on a LongBench-v2 sample.
+
+    Parameters
+    ----------
+    sample        : dataset row (must have context/question/choice_*/answer + sample_idx)
+    max_depth     : RLM max_depth (1 = single sub-call)
+    max_iterations: maximum iterations per completion
+    exp_name      : label for this experiment run (used in log filename)
+    model_name    : Azure OpenAI model name
+    log_dir       : root directory for RLMLogger output
+    """
+    sample_idx = sample.get("sample_idx", "?")
+    log_name = f"sample{sample_idx}_{exp_name}_d{max_depth}_i{max_iterations}"
+
     rlm = RLM(
         backend="azure_openai",
         backend_kwargs={
             "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
             "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
             "api_version": os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
-            # "deployment_name": os.getenv("AZURE_OPENAI_DEPLOYMENT"),  
-            "model_name": "gpt-4o",
+            "model_name": model_name,
         },
         environment="local",
-        max_iterations=10,
-        logger=RLMLogger(log_dir="./logs"),
+        max_depth=max_depth,
+        max_iterations=max_iterations,
+        logger=RLMLogger(log_dir=log_dir, file_name=log_name),
         verbose=True,
     )
-else:
-    rlm = RLM(
-    backend="azure_openai",
-    backend_kwargs={
-        "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
-        "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
-        "api_version": os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
-        # "deployment_name": os.getenv("AZURE_OPENAI_DEPLOYMENT"),  
-        "model_name": "gpt-5-nano",
-    },
-    environment="local",
-    max_iterations=10,
-    logger=RLMLogger(log_dir="./logs_LongBenchPro"),
-    verbose=True,
-    )
-# result = rlm.completion(
-#     "The context contains ~50k lines of random text with a single line "
-#     "matching the pattern SECRET_NUMBER=<digits>. Find and return ONLY the "
-#     f"numeric value.\n\n{haystack}"
-# )
 
-# print(f"\nModel found: {result.response}")
-# print(f"Actual number: {secret_number}")
-# print(f"Correct: {str(secret_number) in result.response}")
-# --- Run evaluation on LongBench ---
-results = []
+    context      = sample["context"]
+    question     = sample["question"]
+    choice_A     = sample["choice_A"]
+    choice_B     = sample["choice_B"]
+    choice_C     = sample["choice_C"]
+    choice_D     = sample["choice_D"]
+    ground_truth = sample["answer"]
 
-num_samples = 10  # change if needed
+    prompt = f"""You are given a context and a multiple-choice question. \
+Read the context carefully and choose the best answer.
+Question:
+{question}
 
-for i in range(num_samples):
-    print(f"\n{'='*60}\n  QUESTION {i + 1} / {num_samples}\n{'='*60}")
-    sample = dataset[i]
 
-    context = sample["context"]
-    question = sample["question"]
-    choice_A = sample["choice_A"]
-    choice_B = sample["choice_B"]
-    choice_C = sample["choice_C"]
-    choice_D = sample["choice_D"]
-    ground_truth = sample["answer"]  # single letter: "A", "B", "C", or "D"
+Choices:
+A. {choice_A}
+B. {choice_B}
+C. {choice_C}
+D. {choice_D}
 
-    prompt = f"""
-    You are given a context and a multiple-choice question. Read the context carefully and choose the best answer.
+Context:
+{context}
 
-    Context:
-    {context}
 
-    Question:
-    {question}
-
-    Choices:
-    A. {choice_A}
-    B. {choice_B}
-    C. {choice_C}
-    D. {choice_D}
-
-    Reply with only the letter of the correct answer (A, B, C, or D):
-    """
+Reply with only the letter of the correct answer (A, B, C, or D):"""
 
     result = rlm.completion(prompt)
 
-    prediction = result.response.strip().upper()
-    # Extract just the first letter in case the model returns "A." or "A) ..."
+    prediction = result.response.strip().upper().replace('"', "")
     predicted_letter = prediction[0] if prediction else ""
-
     correct = predicted_letter == ground_truth
 
-    results.append({
-        "id": i,
-        "question": question,
-        "prediction": predicted_letter,
-        "ground_truth": ground_truth,
-        "correct": correct,
-        "trajectory": result.metadata
-    })
+    return {
+        "sample_idx":     sample_idx,
+        "experiment":     exp_name,
+        "max_depth":      max_depth,
+        "max_iterations": max_iterations,
+        "question":       question,
+        "prediction":     predicted_letter,
+        "ground_truth":   ground_truth,
+        "correct":        correct,
+        "log_file":       log_name,
+        "metadata":       result.metadata,
+    }
 
-    print(f"\n--- Sample {i} ---")
-    print(f"Q: {question}")
-    print(f"Pred: {predicted_letter}")
-    print(f"GT: {ground_truth}")
-    print(f"Correct: {correct}")
+
+# ---------------------------------------------------------------------------
+# Experiment matrix
+# ---------------------------------------------------------------------------
+
+EXPERIMENTS = [
+    {"name": "base", "max_depth": 1, "max_iterations": 10},
+    {"name": "exp1", "max_depth": 1, "max_iterations": 30},
+    # {"name": "exp2", "max_depth": 2, "max_iterations": 10},
+    # {"name": "exp3", "max_depth": 5, "max_iterations": 10},
+]
+
+all_results: list[dict] = []
+
+for sample in selected_samples:
+    for exp in EXPERIMENTS:
+        print(
+            f"\n{'='*60}\n"
+            f"  sample_idx={sample['sample_idx']}  {exp['name'].upper()}  "
+            f"depth={exp['max_depth']}  iters={exp['max_iterations']}\n"
+            f"{'='*60}"
+        )
+        res = run_rlm_evaluation(
+            sample,
+            max_depth=exp["max_depth"],
+            max_iterations=exp["max_iterations"],
+            exp_name=exp["name"],
+        )
+        all_results.append(res)
+
+        print(f"  Q: {res['question'][:120]}...")
+        print(f"  Pred: {res['prediction']}  GT: {res['ground_truth']}  Correct: {res['correct']}")
+        print(f"  Log: ./logs_LongBenchPro/{res['log_file']}_*.jsonl")
+
+# ---------------------------------------------------------------------------
+# Summary
+# ---------------------------------------------------------------------------
+
+print("\n\n" + "="*60)
+print("RESULTS SUMMARY")
+print("="*60)
+header = f"{'idx':>4} {'Exp':<6} {'depth':>5} {'iters':>5} {'Pred':>4} {'GT':>2} {'OK':>3}"
+print(header)
+print("-" * len(header))
+for r in all_results:
+    print(
+        f"{r['sample_idx']:>4} {r['experiment']:<6} "
+        f"{r['max_depth']:>5} {r['max_iterations']:>5} "
+        f"{r['prediction']:>4} {r['ground_truth']:>2} {'✓' if r['correct'] else '✗':>3}"
+    )
+
+output_path = "./logs_LongBenchPro/experiment_results.json"
+os.makedirs("./logs_LongBenchPro", exist_ok=True)
+with open(output_path, "w") as f:
+    serializable = [{k: v for k, v in r.items() if k != "metadata"} for r in all_results]
+    json.dump(serializable, f, indent=2)
+print(f"\nResults saved to {output_path}")

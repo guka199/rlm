@@ -216,12 +216,14 @@ class LocalREPL(NonIsolatedEnv):
         """Return the value of a variable as a final answer for the main model, or stringify a direct value."""
         if not isinstance(variable_name, str):
             answer = str(variable_name)
-            self._last_final_answer = answer
+            if self._last_final_answer is None:
+                self._last_final_answer = answer
             return answer
         variable_name = variable_name.strip().strip("\"'")
         if variable_name in self.locals:
             answer = str(self.locals[variable_name])
-            self._last_final_answer = answer
+            if self._last_final_answer is None:
+                self._last_final_answer = answer
             return answer
 
         # Provide helpful error message with available variables (do not set _last_final_answer)
