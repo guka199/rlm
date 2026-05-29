@@ -30,6 +30,7 @@ import re
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 
@@ -51,7 +52,6 @@ RESULTS_DIR = Path("results")
 LOGS_DIR = Path("logs")
 
 ALL_RESULTS_PATH = RESULTS_DIR / "all_results.jsonl"
-ALL_LOGS_PATH = LOGS_DIR / "all_logs.jsonl"
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +197,7 @@ def run_experiment(config: dict, qa_pairs: list[dict], backend: str, backend_kwa
     print(f"  Already done   : {len(done)}")
     print(f"  To run         : {len(remaining)}")
     print(f"  Results        → {ALL_RESULTS_PATH}")
-    print(f"  Logs           → {ALL_LOGS_PATH}")
+    print(f"  Logs           → {LOGS_DIR / name}/<qa_id>.jsonl")
 
     if not remaining:
         print("  Nothing to do — fully checkpointed.")
@@ -214,8 +214,10 @@ def run_experiment(config: dict, qa_pairs: list[dict], backend: str, backend_kwa
         verbose=True,
     )
 
-    with open(ALL_RESULTS_PATH, "a") as results_out, \
-            open(ALL_LOGS_PATH, "a") as logs_out:
+    qa_log_dir = LOGS_DIR / name
+    qa_log_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(ALL_RESULTS_PATH, "a") as results_out:
         for i, qa in enumerate(remaining):
             prompt = build_context(qa["context"])
             try:
@@ -255,10 +257,15 @@ def run_experiment(config: dict, qa_pairs: list[dict], backend: str, backend_kwa
 
             trajectory = logger.get_trajectory()
             if trajectory:
-                log_entry = {"qa_id": qa["qa_id"],
-                             "experiment": name, **trajectory}
-                logs_out.write(json.dumps(log_entry) + "\n")
-                logs_out.flush()
+                qa_log_path = qa_log_dir / f"{qa['qa_id']}.jsonl"
+                with open(qa_log_path, "w") as log_f:
+                    log_f.write(json.dumps({
+                        "type": "metadata",
+                        "timestamp": datetime.now().isoformat(),
+                        **trajectory["run_metadata"],
+                    }) + "\n")
+                    for iteration in trajectory["iterations"]:
+                        log_f.write(json.dumps(iteration) + "\n")
 
             status = "✓" if correct else "✗"
             print(
