@@ -50,6 +50,9 @@ EXPERIMENTS = [
 RESULTS_DIR = Path("results")
 LOGS_DIR = Path("logs")
 
+ALL_RESULTS_PATH = RESULTS_DIR / "all_results.jsonl"
+ALL_LOGS_PATH = LOGS_DIR / "all_logs.jsonl"
+
 
 # ---------------------------------------------------------------------------
 # Azure setup
@@ -158,13 +161,15 @@ def build_context(context: list[dict]) -> str:
 # Checkpointing
 # ---------------------------------------------------------------------------
 
-def load_done(results_path: Path) -> set[str]:
+def load_done(experiment_name: str) -> set[str]:
     done = set()
-    if results_path.exists():
-        with open(results_path) as f:
+    if ALL_RESULTS_PATH.exists():
+        with open(ALL_RESULTS_PATH) as f:
             for line in f:
                 try:
-                    done.add(json.loads(line)["qa_id"])
+                    record = json.loads(line)
+                    if record.get("experiment") == experiment_name:
+                        done.add(record["qa_id"])
                 except (json.JSONDecodeError, KeyError):
                     pass
     return done
@@ -180,10 +185,9 @@ def run_experiment(config: dict, qa_pairs: list[dict], backend: str, backend_kwa
     max_iters = config["max_iterations"]
 
     RESULTS_DIR.mkdir(exist_ok=True)
-    log_dir = LOGS_DIR / name
-    results_path = RESULTS_DIR / f"exp_{name}.jsonl"
+    LOGS_DIR.mkdir(exist_ok=True)
 
-    done = load_done(results_path)
+    done = load_done(name)
     remaining = [q for q in qa_pairs if q["qa_id"] not in done]
 
     print(f"\n{'='*60}")
@@ -192,13 +196,14 @@ def run_experiment(config: dict, qa_pairs: list[dict], backend: str, backend_kwa
     print(f"  Total QA pairs : {len(qa_pairs)}")
     print(f"  Already done   : {len(done)}")
     print(f"  To run         : {len(remaining)}")
-    print(f"  Results        → {results_path}")
+    print(f"  Results        → {ALL_RESULTS_PATH}")
+    print(f"  Logs           → {ALL_LOGS_PATH}")
 
     if not remaining:
         print("  Nothing to do — fully checkpointed.")
-        return summarize(results_path, name)
+        return summarize(name)
 
-    logger = RLMLogger(log_dir=str(log_dir))
+    logger = RLMLogger()
     rlm = RLM(
         backend=backend,
         backend_kwargs=backend_kwargs,
@@ -209,14 +214,14 @@ def run_experiment(config: dict, qa_pairs: list[dict], backend: str, backend_kwa
         verbose=True,
     )
 
-    with open(results_path, "a") as out:
+    with open(ALL_RESULTS_PATH, "a") as results_out, \
+            open(ALL_LOGS_PATH, "a") as logs_out:
         for i, qa in enumerate(remaining):
             prompt = build_context(qa["context"])
             try:
                 completion = rlm.completion(
                     prompt, root_prompt=ROOT_PROMPT)
                 raw = completion.response.strip()
-                # Extract tool name from FINAL(tool_name) if present, else take first word
                 m = re.search(r'FINAL\(([^)]+)\)', raw)
                 predicted = m.group(1).strip() if m else raw.split()[0]
                 error = None
@@ -245,24 +250,34 @@ def run_experiment(config: dict, qa_pairs: list[dict], backend: str, backend_kwa
                 "max_depth":      max_depth,
                 "max_iterations": max_iters,
             }
-            out.write(json.dumps(record) + "\n")
-            out.flush()
+            results_out.write(json.dumps(record) + "\n")
+            results_out.flush()
+
+            trajectory = logger.get_trajectory()
+            if trajectory:
+                log_entry = {"qa_id": qa["qa_id"],
+                             "experiment": name, **trajectory}
+                logs_out.write(json.dumps(log_entry) + "\n")
+                logs_out.flush()
 
             status = "✓" if correct else "✗"
             print(
                 f"  [{i+1}/{len(remaining)}] {status}  gt={qa['next_action']:<35} pred={predicted}")
 
-    return summarize(results_path, name)
+    return summarize(name)
 
 
-def summarize(results_path: Path, name: str) -> dict:
+def summarize(name: str) -> dict:
     records = []
-    with open(results_path) as f:
-        for line in f:
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass
+    if ALL_RESULTS_PATH.exists():
+        with open(ALL_RESULTS_PATH) as f:
+            for line in f:
+                try:
+                    r = json.loads(line)
+                    if r.get("experiment") == name:
+                        records.append(r)
+                except json.JSONDecodeError:
+                    pass
 
     total = len(records)
     correct = sum(1 for r in records if r["correct"])
