@@ -11,7 +11,7 @@ Experiments:
 Usage:
     export AZURE_OPENAI_API_KEY=...
     export AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com/
-    export AZURE_OPENAI_DEPLOYMENT=gpt-4o
+    export AZURE_OPENAI_DEPLOYMENT=gpt-5
     export AZURE_OPENAI_API_VERSION=2024-02-15-preview
 
     python run_experiments.py                       # all 3 experiments
@@ -66,7 +66,7 @@ def configure_azure() -> tuple[str, dict]:
     endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
     api_version = os.environ.get(
         "AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
-    deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-5")
+    deployment = "gpt-5"
 
     if not api_key:
         print("ERROR: AZURE_OPENAI_API_KEY not set.", file=sys.stderr)
@@ -85,13 +85,11 @@ def configure_azure() -> tuple[str, dict]:
     print(f"  deployment : {deployment}")
     print(f"  api_version: {api_version}")
 
-    # Use the native azure_openai backend — reads AZURE_OPENAI_* env vars automatically
     return "azure_openai", {
-        "model_name":       deployment,
-        "api_key":          api_key,
-        "azure_endpoint":   endpoint.rstrip("/"),
-        "api_version":      api_version,
-        "azure_deployment": deployment,
+        "model_name":     deployment,
+        "api_key":        api_key,
+        "azure_endpoint": endpoint.rstrip("/"),
+        "api_version":    api_version,
     }
 
 

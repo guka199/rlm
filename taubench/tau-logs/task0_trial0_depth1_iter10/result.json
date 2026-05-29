@@ -1,0 +1,8 @@
+{
+  "task_id": 0,
+  "trial": 0,
+  "experiment": "depth1_iter10",
+  "reward": 0.0,
+  "error": "Execution cancelled by user (Ctrl+C)",
+  "traceback": "Traceback (most recent call last):\n  File \"/Users/andrew/rlm/taubench/run_experiments_2.py\", line 292, in main\n    result = run_task(env, task_index, exp, log_dir)\n  File \"/Users/andrew/rlm/taubench/run_experiments_2.py\", line 181, in run_task\n    result = rlm.completion(prompt=prompt)\n  File \"/Users/andrew/rlm/venv/lib/python3.13/site-packages/rlm/core/rlm.py\", line 404, in completion\n    raise CancellationError(\n    ...<2 lines>...\n    ) from None\nrlm.utils.exceptions.CancellationError: Execution cancelled by user (Ctrl+C)\n"
+}
