@@ -1,12 +1,18 @@
 """
 run_experiments.py
 ==================
-Runs 3 RLM experiment configurations on the τ-bench airline QA dataset.
+Runs RLM experiment configurations on τ-bench airline QA datasets.
 
 Experiments:
     1. max_depth=1, max_iterations=10
     2. max_depth=1, max_iterations=30
     3. max_depth=2, max_iterations=10
+
+Long-context experiments (pass --input and --context-variant):
+    python run_experiments.py --input data/longcontext_8k.jsonl  --context-variant 8k_start  --gold-position start
+    python run_experiments.py --input data/longcontext_8k.jsonl  --context-variant 8k_end    --gold-position end
+    python run_experiments.py --input data/longcontext_66k.jsonl --context-variant 66k_start --gold-position start
+    python run_experiments.py --input data/longcontext_66k.jsonl --context-variant 66k_end   --gold-position end
 
 Usage:
     export AZURE_OPENAI_API_KEY=...
@@ -313,6 +319,12 @@ def main():
                         help="Only use QA pairs from successful trajectories (reward=1.0).")
     parser.add_argument("--num-samples",     type=int, default=None,
                         help="Cap number of QA pairs (useful for smoke tests).")
+    parser.add_argument("--gold-position",   choices=["start", "end"], default=None,
+                        help="Filter long-context records by gold context position.")
+    parser.add_argument("--context-variant", default=None,
+                        help="Suffix appended to experiment names (e.g. '8k_start'). "
+                             "Use when running on a long-context dataset so results "
+                             "are checkpointed separately from the baseline.")
     args = parser.parse_args()
 
     # --- configure Azure ---
@@ -337,14 +349,25 @@ def main():
         qa_pairs = [q for q in qa_pairs if q["traj_reward"] == 1.0]
         print(f"Filtered to successful trajectories: {len(qa_pairs)} pairs")
 
+    if args.gold_position:
+        qa_pairs = [q for q in qa_pairs if q.get("gold_position") == args.gold_position]
+        print(f"Filtered to gold_position={args.gold_position}: {len(qa_pairs)} pairs")
+
     if args.num_samples:
         qa_pairs = qa_pairs[:args.num_samples]
         print(f"Capped to {len(qa_pairs)} samples")
 
-    # --- run experiments ---
-    configs = EXPERIMENTS if args.experiment is None else [
+    # Apply context variant suffix to experiment names for separate checkpointing
+    configs_base = EXPERIMENTS if args.experiment is None else [
         c for c in EXPERIMENTS if c["id"] == args.experiment
     ]
+    if args.context_variant:
+        configs = [
+            {**c, "name": f"{c['name']}_{args.context_variant}"}
+            for c in configs_base
+        ]
+    else:
+        configs = configs_base
 
     summaries = []
     for config in configs:

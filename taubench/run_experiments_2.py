@@ -13,6 +13,7 @@ import json
 import os
 import traceback
 from datetime import datetime
+from pathlib import Path
 from dotenv import load_dotenv
 
 from tau_bench.envs import get_env
@@ -23,6 +24,10 @@ from rlm.logger import RLMLogger
 
 load_dotenv()
 
+RESULTS_DIR = Path("results")
+LOGS_DIR = Path("logs")
+ALL_RESULTS_PATH = RESULTS_DIR / "all_results.jsonl"
+
 # ---------------------------------------------------------------------------
 # Experiment configs  (mirrors your existing EXPERIMENTS list)
 # ---------------------------------------------------------------------------
@@ -30,11 +35,17 @@ load_dotenv()
 EXPERIMENTS = [
     {"name": "depth1_iter10", "max_depth": 1,
         "max_iterations": 10, "model": "gpt-5"},
-    {"name": "depth1_iter30", "max_depth": 1,
+    {"name": "depth1_iter30", "max_depth":
         "max_iterations": 30, "model": "gpt-5"},
     # Uncomment to add depth-2:
     # {"name": "depth2_iter10", "max_depth": 2, "max_iterations": 10, "model": "gpt-5"},
 ]
+
+SYSTEM_PROMPT = """\
+You are a next-action predictor for an airline customer service agent.
+Given a conversation history and a list of available tools, your only job is to decide the single next action the agent should take.
+Use FINAL(tool_name) to submit your answer, or FINAL(respond) to reply to the user. One answer only.\
+"""
 
 # ---------------------------------------------------------------------------
 # Build the RLM prompt from a live tau-bench conversation history
@@ -142,17 +153,17 @@ def parse_action(response: str, tools_info: list[dict]) -> Action:
 MAX_AGENT_TURNS = 30  # hard cap to avoid runaway loops
 
 
-def run_task(env, task_index: int, exp: dict, log_dir: str) -> dict:
+def run_task(env, task_index: int, exp: dict) -> tuple[dict, dict | None]:
     """
-    Reset the env for task_index, run the agent loop, return a result dict.
+    Reset the env for task_index, run the agent loop.
+    Returns (result_dict, trajectory) where trajectory is visualizer-compatible.
     """
     reset_resp = env.reset(task_index=task_index)
-    observation = reset_resp.observation  # first user message
-    task = reset_resp.info.task
+    observation = reset_resp.observation
 
     messages: list[dict] = [{"role": "user", "content": observation}]
 
-    logger = RLMLogger(log_dir=log_dir)
+    logger = RLMLogger()
     rlm = RLM(
         backend="azure_openai",
         backend_kwargs={
@@ -164,6 +175,7 @@ def run_task(env, task_index: int, exp: dict, log_dir: str) -> dict:
         environment="local",
         max_depth=exp["max_depth"],
         max_iterations=exp["max_iterations"],
+        custom_system_prompt=SYSTEM_PROMPT,
         logger=logger,
         verbose=True,
     )
@@ -172,31 +184,35 @@ def run_task(env, task_index: int, exp: dict, log_dir: str) -> dict:
     done = False
     turn = 0
     traj_log = []
+    all_iterations = []
+    run_metadata = None
 
     while not done and turn < MAX_AGENT_TURNS:
         turn += 1
         prompt = build_prompt(env.wiki, messages)
 
         print(f"  [turn {turn}] calling RLM...")
-        result = rlm.completion(prompt=prompt)
+        result = rlm.completion(prompt=" ", root_prompt=prompt)
         raw_response = result.response
+
+        trajectory = logger.get_trajectory()
+        if trajectory:
+            run_metadata = trajectory["run_metadata"]
+            all_iterations.extend(trajectory["iterations"])
 
         action = parse_action(raw_response, env.tools_info)
         print(f"  [turn {turn}] action={action.name}")
 
-        # Record agent turn
         messages.append({
             "role": "assistant",
             "tool_call": {"name": action.name, "kwargs": action.kwargs},
         })
 
-        # Step the environment
         env_resp = env.step(action)
         observation = env_resp.observation
         reward = env_resp.reward
         done = env_resp.done
 
-        # Record tool/user result
         messages.append({
             "role": "tool",
             "name": action.name,
@@ -212,10 +228,9 @@ def run_task(env, task_index: int, exp: dict, log_dir: str) -> dict:
             "reward": reward,
         })
 
-        print(
-            f"  [turn {turn}] obs={observation[:80]}... done={done} reward={reward}")
+        print(f"  [turn {turn}] obs={observation[:80]}... done={done} reward={reward}")
 
-    return {
+    result = {
         "task_id": task_index,
         "experiment": exp["name"],
         "reward": reward,
@@ -224,10 +239,27 @@ def run_task(env, task_index: int, exp: dict, log_dir: str) -> dict:
         "traj": traj_log,
     }
 
+    full_trajectory = {"run_metadata": run_metadata, "iterations": all_iterations} if run_metadata else None
+    return result, full_trajectory
+
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
+def load_done(experiment_name: str) -> set[tuple[int, int]]:
+    done = set()
+    if ALL_RESULTS_PATH.exists():
+        with open(ALL_RESULTS_PATH) as f:
+            for line in f:
+                try:
+                    r = json.loads(line)
+                    if r.get("experiment") == experiment_name:
+                        done.add((r["task_id"], r["trial"]))
+                except (json.JSONDecodeError, KeyError):
+                    pass
+    return done
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -237,7 +269,6 @@ def main():
                         help="Number of trials per task")
     parser.add_argument("--exp", type=str, default=None,
                         help="Run a single experiment by name (default: all)")
-    parser.add_argument("--log-dir", type=str, default="./tau-logs")
     args = parser.parse_args()
 
     task_ids = args.tasks if args.tasks is not None else list(range(5))
@@ -248,14 +279,14 @@ def main():
     if not exps:
         raise ValueError(f"Unknown experiment: {args.exp}")
 
-    timestamp = datetime.now().strftime("%m%d_%H%M%S")
-    results_path = os.path.join(args.log_dir, f"results_{timestamp}.jsonl")
-    os.makedirs(args.log_dir, exist_ok=True)
+    RESULTS_DIR.mkdir(exist_ok=True)
+    LOGS_DIR.mkdir(exist_ok=True)
 
     print(f"Tasks:       {task_ids}")
     print(f"Experiments: {[e['name'] for e in exps]}")
     print(f"Trials:      {args.trials}")
-    print(f"Logging to:  {args.log_dir}\n")
+    print(f"Results    → {ALL_RESULTS_PATH}")
+    print(f"Logs       → {LOGS_DIR}/<experiment>/task<id>_trial<n>.jsonl\n")
 
     all_results = []
 
@@ -263,22 +294,16 @@ def main():
         for task_index in task_ids:
             for exp in exps:
                 run_id = f"task{task_index}_trial{trial}_{exp['name']}"
-                log_dir = os.path.join(args.log_dir, run_id)
+                done = load_done(exp["name"])
 
-                # Skip-if-exists checkpoint (same pattern as taubench_run.py)
-                done_marker = os.path.join(log_dir, "result.json")
-                if os.path.exists(done_marker):
+                if (task_index, trial) in done:
                     print(f"Skipping {run_id} (already done)")
-                    with open(done_marker) as f:
-                        all_results.append(json.load(f))
                     continue
 
-                os.makedirs(log_dir, exist_ok=True)
                 print(f"\n{'='*60}")
                 print(f"  {run_id}")
                 print(f"{'='*60}")
 
-                # Fresh env per run (tau-bench pattern from run.py)
                 env = get_env(
                     "airline",
                     user_strategy="llm",
@@ -289,11 +314,10 @@ def main():
                 )
 
                 try:
-                    result = run_task(env, task_index, exp, log_dir)
+                    result, trajectory = run_task(env, task_index, exp)
                     result["trial"] = trial
                 except KeyboardInterrupt:
-                    print(
-                        f"\nInterrupted on {run_id} — writing partial result")
+                    print(f"\nInterrupted on {run_id} — writing partial result")
                     result = {
                         "task_id": task_index,
                         "trial": trial,
@@ -301,6 +325,7 @@ def main():
                         "reward": 0.0,
                         "error": "interrupted",
                     }
+                    trajectory = None
                 except Exception as e:
                     print(f"Error on {run_id}: {e}")
                     result = {
@@ -311,14 +336,24 @@ def main():
                         "error": str(e),
                         "traceback": traceback.format_exc(),
                     }
+                    trajectory = None
 
-                # Persist per-run result so we can resume
-                with open(done_marker, "w") as f:
-                    json.dump(result, f, indent=2)
-
-                # Append to rolling JSONL
-                with open(results_path, "a") as f:
+                with open(ALL_RESULTS_PATH, "a") as f:
                     f.write(json.dumps(result) + "\n")
+
+                if trajectory:
+                    log_dir = LOGS_DIR / exp["name"]
+                    log_dir.mkdir(parents=True, exist_ok=True)
+                    log_path = log_dir / f"task{task_index}_trial{trial}.jsonl"
+                    with open(log_path, "w") as f:
+                        f.write(json.dumps({
+                            "type": "metadata",
+                            "timestamp": datetime.now().isoformat(),
+                            **trajectory["run_metadata"],
+                        }) + "\n")
+                        for i, iteration in enumerate(trajectory["iterations"], 1):
+                            entry = {**iteration, "iteration": i}
+                            f.write(json.dumps(entry) + "\n")
 
                 all_results.append(result)
 
@@ -352,7 +387,7 @@ def main():
             print(
                 f"    task{r['task_id']} trial{r['trial']} {r['experiment']}: {r['error']}")
 
-    print(f"\nFull results: {results_path}")
+    print(f"\nFull results: {ALL_RESULTS_PATH}")
 
 
 if __name__ == "__main__":
