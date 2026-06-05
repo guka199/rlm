@@ -58,9 +58,9 @@ except ImportError:
 # Paths and targets
 # ---------------------------------------------------------------------------
 
-AIRLINE_QA_PATH  = Path("data/taubench_airline_qa.jsonl")
+AIRLINE_QA_PATH = Path("data/taubench_airline_qa.jsonl")
 RETAIL_TRAJ_PATH = Path("tau-bench/historical_trajectories/gpt-4o-retail.json")
-OUTPUT_DIR       = Path("data")
+OUTPUT_DIR = Path("data")
 
 TOKEN_TARGETS = {"8k": 8_000, "66k": 66_000}
 
@@ -70,7 +70,7 @@ TOKEN_TARGETS = {"8k": 8_000, "66k": 66_000}
 # ---------------------------------------------------------------------------
 
 def turn_to_text(turn: dict) -> str:
-    role    = turn.get("role", "unknown")
+    role = turn.get("role", "unknown")
     content = turn.get("content") or ""
 
     if role == "system":
@@ -82,7 +82,7 @@ def turn_to_text(turn: dict) -> str:
     elif role == "assistant":
         tool_calls = turn.get("tool_calls") or []
         if tool_calls:
-            fn   = tool_calls[0]["function"]["name"]
+            fn = tool_calls[0]["function"]["name"]
             args = tool_calls[0]["function"].get("arguments", "{}")
             return f"AGENT called: {fn}({args})"
         return f"AGENT: {content}"
@@ -130,7 +130,7 @@ def collect_filler(
     accumulated = 0
     idx = start_idx
     while accumulated < token_gap:
-        turn         = filler_pool[idx % n]
+        turn = filler_pool[idx % n]
         accumulated += count_tokens(turn_to_text(turn))
         filler_turns.append(turn)
         idx += 1
@@ -147,10 +147,10 @@ def assemble_context(
     position="end":   system + filler_turns + gold_turns
     """
     system_turns = [t for t in gold_context if t.get("role") == "system"]
-    gold_turns   = [t for t in gold_context if t.get("role") != "system"]
+    gold_turns = [t for t in gold_context if t.get("role") != "system"]
     if position == "start":
-        return system_turns + gold_turns + filler_turns
-    return system_turns + filler_turns + gold_turns
+        return system_turns + gold_turns + filler_turns   # gold first, filler at end
+    return system_turns + filler_turns + gold_turns       # filler first, gold at end
 
 
 # ---------------------------------------------------------------------------
@@ -169,8 +169,8 @@ def main():
     args = parser.parse_args()
 
     airline_path = Path(args.airline_qa)
-    retail_path  = Path(args.retail_traj)
-    output_dir   = Path(args.output_dir)
+    retail_path = Path(args.retail_traj)
+    output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load airline QA pairs
@@ -192,24 +192,27 @@ def main():
         print(f"Capped to {len(qa_pairs)} samples")
 
     filler_pool = load_filler_pool(retail_path)
-    print(f"Retail filler pool: {len(filler_pool)} turns from successful trajectories")
+    print(
+        f"Retail filler pool: {len(filler_pool)} turns from successful trajectories")
 
     for context_size, token_target in TOKEN_TARGETS.items():
         output_path = output_dir / f"longcontext_{context_size}.jsonl"
-        records   = []
+        records = []
         filler_idx = 0  # advances globally so adjacent QA pairs get varied filler
 
         for i, qa in enumerate(qa_pairs):
             gold_tokens = turns_token_count(qa["context"])
-            token_gap   = max(0, token_target - gold_tokens)
+            token_gap = max(0, token_target - gold_tokens)
 
             # Collect filler once; reuse for both positions so they're comparable
-            filler_turns, filler_idx = collect_filler(filler_pool, filler_idx, token_gap)
+            filler_turns, filler_idx = collect_filler(
+                filler_pool, filler_idx, token_gap)
             filler_tokens = turns_token_count(filler_turns)
-            total_tokens  = gold_tokens + filler_tokens
+            total_tokens = gold_tokens + filler_tokens
 
             for position in ("start", "end"):
-                padded = assemble_context(qa["context"], filler_turns, position)
+                padded = assemble_context(
+                    qa["context"], filler_turns, position)
                 records.append({
                     # original fields — preserved for joining back to baseline results
                     "qa_id":          qa["qa_id"],
@@ -234,17 +237,21 @@ def main():
                 f.write(json.dumps(record) + "\n")
 
         start_recs = [r for r in records if r["position"] == "start"]
-        avg_gold   = sum(turns_token_count(q["context"]) for q in qa_pairs) / len(qa_pairs)
-        avg_total  = sum(r["total_tokens"] for r in start_recs) / len(start_recs)
-        min_total  = min(r["total_tokens"] for r in start_recs)
-        max_total  = max(r["total_tokens"] for r in start_recs)
-        size_kb    = output_path.stat().st_size / 1024
+        avg_gold = sum(turns_token_count(q["context"])
+                       for q in qa_pairs) / len(qa_pairs)
+        avg_total = sum(r["total_tokens"]
+                        for r in start_recs) / len(start_recs)
+        min_total = min(r["total_tokens"] for r in start_recs)
+        max_total = max(r["total_tokens"] for r in start_recs)
+        size_kb = output_path.stat().st_size / 1024
 
         print(f"\n{context_size} → {output_path}  ({size_kb:,.0f} KB)")
-        print(f"  Records       : {len(records)} ({len(start_recs)} start + {len(start_recs)} end)")
+        print(
+            f"  Records       : {len(records)} ({len(start_recs)} start + {len(start_recs)} end)")
         print(f"  Token target  : {token_target:,}")
         print(f"  Avg gold toks : {avg_gold:,.0f}")
-        print(f"  Avg total toks: {avg_total:,.0f}  [min={min_total:,}, max={max_total:,}]")
+        print(
+            f"  Avg total toks: {avg_total:,.0f}  [min={min_total:,}, max={max_total:,}]")
 
 
 if __name__ == "__main__":

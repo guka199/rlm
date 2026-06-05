@@ -1,6 +1,9 @@
 # MacOS
 .DS_Store
 
+# Large data files (>100MB, exceeds GitHub limit)
+taubench/data/longcontext_66k.jsonl
+
 # Environment variables
 .env
 

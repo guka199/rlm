@@ -61,17 +61,35 @@ CONTEXT_VARIANTS = [
 # Output paths
 # ---------------------------------------------------------------------------
 
-RESULTS_DIR      = Path("results")
-LOGS_DIR         = Path("logs")
-ALL_RESULTS_PATH = RESULTS_DIR / "longcontext_results.jsonl"
+RESULTS_DIR = Path("results")
+LOGS_DIR = Path("logs")
+
+
+def run_name(variant_name: str, exp_name: str) -> str:
+    return f"longcontext_{variant_name}_{exp_name}"
+
+
+def results_path(variant_name: str, exp_name: str) -> Path:
+    return RESULTS_DIR / f"{run_name(variant_name, exp_name)}.jsonl"
 
 # ---------------------------------------------------------------------------
 # Prompts
 # ---------------------------------------------------------------------------
 
-SYSTEM_PROMPT = """\
-You are a next-action predictor for an airline customer service agent.
-Given a conversation history and a list of available tools, your only job is to decide the single next action the agent should take.
+
+SYSTEM_PROMPT_END = """\
+The context contains multiple conversation trajectories.
+Your task is to predict the next action for the AIRLINE trajectory \
+(the one after the final ###STOP### marker). Use all preceding context \
+as background, but your FINAL answer must refer to the airline agent task.
+Use FINAL(tool_name) to submit your answer. One answer only.\
+"""
+
+SYSTEM_PROMPT_START = """\
+The context contains multiple conversation trajectories.
+Your task is to predict the next action for the AIRLINE trajectory \
+(the one at the beginning, before any ###STOP### marker). Use all following context \
+as background, but your FINAL answer must refer to the airline agent task.
 Use FINAL(tool_name) to submit your answer. One answer only.\
 """
 
@@ -80,16 +98,17 @@ AVAILABLE_TOOLS = [
     "get_reservation_details",
     "search_direct_flight",
     "search_onestop_flight",
-    "list_all_airports",
-    "calculate",
-    "think",
     "book_reservation",
     "cancel_reservation",
     "update_reservation_flights",
     "update_reservation_baggages",
     "update_reservation_passengers",
     "send_certificate",
+    "list_all_airports",
+    "calculate",
+    "think",
     "transfer_to_human_agents",
+    "respond",
 ]
 
 ROOT_PROMPT = (
@@ -110,11 +129,11 @@ def build_context(padded_context: list[dict]) -> str:
     """
     lines = []
     for turn in padded_context:
-        role    = turn.get("role", "unknown")
+        role = turn.get("role", "unknown")
         content = turn.get("content") or ""
 
         if role == "system":
-            continue
+            lines.append(f"[AIRLINE AGENT POLICY]\n{content[:500]}...\n")
         elif role == "user":
             lines.append(f"USER: {content}")
         elif role == "tool":
@@ -123,7 +142,7 @@ def build_context(padded_context: list[dict]) -> str:
         elif role == "assistant":
             tool_calls = turn.get("tool_calls") or []
             if tool_calls:
-                fn   = tool_calls[0]["function"]["name"]
+                fn = tool_calls[0]["function"]["name"]
                 args = tool_calls[0]["function"].get("arguments", "{}")
                 lines.append(f"AGENT called: {fn}({args})")
             else:
@@ -142,20 +161,14 @@ def build_context(padded_context: list[dict]) -> str:
 # Checkpointing
 # ---------------------------------------------------------------------------
 
-def full_exp_name(exp_name: str, variant_name: str) -> str:
-    return f"{exp_name}_{variant_name}"
-
-
 def load_done(exp_name: str, variant_name: str) -> set[str]:
-    key  = full_exp_name(exp_name, variant_name)
     done = set()
-    if ALL_RESULTS_PATH.exists():
-        with open(ALL_RESULTS_PATH) as f:
+    path = results_path(variant_name, exp_name)
+    if path.exists():
+        with open(path) as f:
             for line in f:
                 try:
-                    r = json.loads(line)
-                    if r.get("experiment") == key:
-                        done.add(r["qa_id"])
+                    done.add(json.loads(line)["qa_id"])
                 except (json.JSONDecodeError, KeyError):
                     pass
     return done
@@ -172,19 +185,20 @@ def run_experiment(
     backend: str,
     backend_kwargs: dict,
 ) -> dict:
-    exp_name     = exp["name"]
+    exp_name = exp["name"]
     variant_name = variant["name"]
-    name         = full_exp_name(exp_name, variant_name)
+    name = run_name(variant_name, exp_name)
 
     RESULTS_DIR.mkdir(exist_ok=True)
     LOGS_DIR.mkdir(exist_ok=True)
 
-    done      = load_done(exp_name, variant_name)
+    done = load_done(exp_name, variant_name)
     remaining = [q for q in qa_pairs if q["qa_id"] not in done]
 
     print(f"\n{'='*60}")
     print(f"Experiment : {name}")
-    print(f"  max_depth={exp['max_depth']}, max_iterations={exp['max_iterations']}")
+    print(
+        f"  max_depth={exp['max_depth']}, max_iterations={exp['max_iterations']}")
     print(f"  Total QA pairs : {len(qa_pairs)}")
     print(f"  Already done   : {len(done)}")
     print(f"  To run         : {len(remaining)}")
@@ -193,13 +207,15 @@ def run_experiment(
         print("  Nothing to do — fully checkpointed.")
         return summarize(exp_name, variant_name)
 
+    system_prompt = SYSTEM_PROMPT_END if variant["position"] == "end" else SYSTEM_PROMPT_START
+
     logger = RLMLogger()
     rlm = RLM(
         backend=backend,
         backend_kwargs={**backend_kwargs, "model_name": exp["model"]},
         max_depth=exp["max_depth"],
         max_iterations=exp["max_iterations"],
-        custom_system_prompt=SYSTEM_PROMPT,
+        custom_system_prompt=system_prompt,
         logger=logger,
         verbose=True,
     )
@@ -207,17 +223,19 @@ def run_experiment(
     log_dir = LOGS_DIR / name
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(ALL_RESULTS_PATH, "a") as results_out:
+    with open(results_path(variant_name, exp_name), "a") as results_out:
         for i, qa in enumerate(remaining):
             try:
-                completion = rlm.completion(qa["padded_context"], root_prompt=ROOT_PROMPT)
-                raw        = completion.response.strip()
-                m          = re.search(r"FINAL\(([^)]+)\)", raw)
-                predicted  = m.group(1).strip() if m else raw.split()[0]
-                error      = None
+                completion = rlm.completion(build_context(
+                    qa["padded_context"]), root_prompt=ROOT_PROMPT)
+                raw = completion.response.strip()
+                m = re.search(r"FINAL\(([^)]+)\)", raw)
+                predicted = m.group(1).strip().strip(
+                    '"\'') if m else raw.split()[0].strip('"\'')
+                error = None
             except Exception as e:
                 predicted = ""
-                error     = str(e)
+                error = str(e)
 
             correct = predicted == qa["ground_truth"]
 
@@ -270,29 +288,27 @@ def run_experiment(
 
 
 def summarize(exp_name: str, variant_name: str) -> dict:
-    key     = full_exp_name(exp_name, variant_name)
     records = []
-    if ALL_RESULTS_PATH.exists():
-        with open(ALL_RESULTS_PATH) as f:
+    path = results_path(variant_name, exp_name)
+    if path.exists():
+        with open(path) as f:
             for line in f:
                 try:
-                    r = json.loads(line)
-                    if r.get("experiment") == key:
-                        records.append(r)
+                    records.append(json.loads(line))
                 except json.JSONDecodeError:
                     pass
 
-    total   = len(records)
+    total = len(records)
     correct = sum(1 for r in records if r["correct"])
-    errors  = sum(1 for r in records if r.get("error"))
-    acc     = correct / total if total else 0.0
+    errors = sum(1 for r in records if r.get("error"))
+    acc = correct / total if total else 0.0
 
-    print(f"\n  --- {key} ---")
+    print(f"\n  --- {run_name(variant_name, exp_name)} ---")
     print(f"  Accuracy : {correct}/{total}  ({acc:.1%})")
     if errors:
         print(f"  Errors   : {errors}")
 
-    return {"experiment": key, "accuracy": acc, "correct": correct, "total": total}
+    return {"experiment": run_name(variant_name, exp_name), "accuracy": acc, "correct": correct, "total": total}
 
 
 # ---------------------------------------------------------------------------
@@ -300,9 +316,10 @@ def summarize(exp_name: str, variant_name: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def configure_azure() -> tuple[str, dict]:
-    api_key     = os.environ.get("AZURE_OPENAI_API_KEY")
-    endpoint    = os.environ.get("AZURE_OPENAI_ENDPOINT")
-    api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+    api_key = os.environ.get("AZURE_OPENAI_API_KEY")
+    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+    api_version = os.environ.get(
+        "AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
 
     if not api_key:
         print("ERROR: AZURE_OPENAI_API_KEY not set.", file=sys.stderr)
@@ -311,8 +328,8 @@ def configure_azure() -> tuple[str, dict]:
         print("ERROR: AZURE_OPENAI_ENDPOINT not set.", file=sys.stderr)
         sys.exit(1)
 
-    os.environ["AZURE_API_KEY"]     = api_key
-    os.environ["AZURE_API_BASE"]    = endpoint.rstrip("/")
+    os.environ["AZURE_API_KEY"] = api_key
+    os.environ["AZURE_API_BASE"] = endpoint.rstrip("/")
     os.environ["AZURE_API_VERSION"] = api_version
 
     print(f"Azure OpenAI: endpoint={endpoint}  api_version={api_version}")
@@ -380,11 +397,13 @@ def main():
                 except json.JSONDecodeError:
                     pass
 
-        qa_pairs = [q for q in qa_pairs if q["position"] == variant["position"]]
+        qa_pairs = [q for q in qa_pairs if q["position"]
+                    == variant["position"]]
 
         if args.successful_only:
             qa_pairs = [q for q in qa_pairs if q["traj_reward"] == 1.0]
-            print(f"[{variant['name']}] Filtered to {len(qa_pairs)} successful pairs")
+            print(
+                f"[{variant['name']}] Filtered to {len(qa_pairs)} successful pairs")
 
         if args.num_samples:
             qa_pairs = qa_pairs[:args.num_samples]
