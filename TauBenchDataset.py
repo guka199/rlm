@@ -5,9 +5,11 @@
 
 import json
 import os
+
+from taubench_dataset import TauBenchDataset
+
 from rlm import RLM
 from rlm.logger import RLMLogger
-from taubench_dataset import TauBenchDataset
 
 EXPERIMENTS = [
     {"max_depth": 1, "max_iterations": 10, "name": "base_depth1_iter10"},
@@ -171,7 +173,7 @@ def main():
     print(f"\nTotal correct: {correct_count}/{len(completed)} completed runs")
 
     # Per-experiment breakdown
-    print(f"\n--- Per-experiment accuracy ---")
+    print("\n--- Per-experiment accuracy ---")
     for exp in EXPERIMENTS:
         exp_results = [r for r in completed if r["experiment"] == exp["name"]]
         if exp_results:

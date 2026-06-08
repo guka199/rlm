@@ -53,7 +53,7 @@ def configure_azure() -> openai.AzureOpenAI:
         print("ERROR: AZURE_OPENAI_ENDPOINT not set.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Azure OpenAI configured")
+    print("Azure OpenAI configured")
     print(f"  endpoint   : {endpoint}")
     print(f"  deployment : {deployment}")
     print(f"  api_version: {api_version}")

@@ -26,16 +26,14 @@ Note on depth=2:
 """
 
 import argparse
-import re
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
-
 from rlm import RLM
 from rlm.logger import RLMLogger
-
 
 # ---------------------------------------------------------------------------
 # Experiment configs
@@ -80,7 +78,7 @@ def configure_azure() -> tuple[str, dict]:
     os.environ["AZURE_API_BASE"] = endpoint.rstrip("/")
     os.environ["AZURE_API_VERSION"] = api_version
 
-    print(f"Azure OpenAI configured (via litellm)")
+    print("Azure OpenAI configured (via litellm)")
     print(f"  endpoint   : {endpoint}")
     print(f"  deployment : {deployment}")
     print(f"  api_version: {api_version}")
