@@ -1,0 +1,63 @@
+================================================================================
+LONGBENCH-V2 EVALUATION REPORT
+================================================================================
+
+ idx  exp          d    i  model           pred  gt   EM   PM  iters  note                  
+--------------------------------------------------------------------------------------------
+   1  base         1   10  gpt-5              ?   D    ✗    ✗      3                        
+   1  exp1         1   30  gpt-5              B   D    ✗    ✗      4                        
+   3  base         1   10  gpt-5              ?   D    ✗    ✗      3                        
+   3  exp1         1   30  gpt-5              ?   D    ✗    ✗      8                        
+   7  base         1   10  gpt-5              A   B    ✗    ✗      2                        
+   7  exp1         1   30  gpt-5              ?   B    ✗    ✗      6                        
+   8  base         1   10  gpt-5              ?   D    ✗    ✗      1                        
+   8  baseline     0    1  gpt-5              A   D    ✗    ✗      1                        
+   8  exp1         1   30  gpt-5              A   D    ✗    ✗      7                        
+  10  base         1   10  gpt-5              B   C    ✗    ✓      2                        
+  10  exp1         1   30  gpt-5              A   C    ✗    ✓     31                        
+  11  base         1   10  gpt-5              A   D    ✗    ✓     11                        
+  11  exp1         1   30  gpt-5              B   D    ✗    ✗      2                        
+  12  base         1   10  gpt-5              ?   A    ✗    ✗      1                        
+  12  exp1         1   30  gpt-5              ?   A    ✗    ✗      3                        
+  17  base         1   10  gpt-5              A   A    ✓    ✓      6                        
+  17  exp1         1   30  gpt-5              A   A    ✓    ✓     31                        
+  18  base         1   10  gpt-5              A   D    ✗    ✓     11                        
+  18  baseline     0    1  gpt-5              D   D    ✓    ✓      1                        
+  18  exp1         1   30  gpt-5              B   D    ✗    ✗      6                        
+  27  base         1   10  gpt-5              ?   B    ✗    ✗      2                        
+  27  baseline     0    1  gpt-5              C   B    ✗    ✗      1                        
+  27  exp1         1   30  gpt-5              ?   B    ✗    ✗      1                        
+  28  base         1   10  gpt-5              ?   C    ✗    ✗      5                        
+  28  baseline     0    1  gpt-5              ?   C    ✗    ✗      1  INVALID_FINAL_ANSWER  
+  28  exp1         1   30  gpt-5              B   C    ✗    ✗      2                        
+  29  base         1   10  gpt-5              ?   A    ✗    ✗      5                        
+  29  exp1         1   30  gpt-5              A   A    ✓    ✓      4                        
+  31  base         1   10  gpt-5              B   D    ✗    ✗      6                        
+  31  exp1         1   30  gpt-5              B   D    ✗    ✗      2                        
+  36  base         1   10  gpt-5              ?   D    ✗    ✗      3                        
+  36  exp1         1   30  gpt-5              ?   D    ✗    ✗      9                        
+  40  baseline     0    1  gpt-5              C   B    ✗    ✗      1                        
+  42  base         1   10  gpt-5              A   C    ✗    ✓     11                        
+  42  exp1         1   30  gpt-5              B   C    ✗    ✗      2                        
+  44  base         1   10  gpt-5              ?   A    ✗    ✗      7                        
+  44  exp1         1   30  gpt-5              ?   A    ✗    ✗      2                        
+  46  base         1   10  gpt-5              A   B    ✗    ✗      6                        
+  46  exp1         1   30  gpt-5              ?   B    ✗    ✗      2                        
+  50  base         1   10  gpt-5              ?   D    ✗    ✗      5                        
+  50  exp1         1   30  gpt-5              D   D    ✓    ✓     19                        
+  52  baseline     0    1  gpt-5              C   C    ✓    ✓      1                        
+  53  base         1   10  gpt-5              ?   C    ✗    ✗      5                        
+  53  exp1         1   30  gpt-5              C   C    ✓    ✓      6                        
+  57  base         1   10  gpt-5              A   C    ✗    ✗      1                        
+  61  base         1   10  gpt-5              A   D    ✗    ✓      3                        
+  66  baseline     0    1  gpt-5              D   D    ✓    ✓      1                        
+  69  baseline     0    1  gpt-5              B   B    ✓    ✓      1                        
+
+
+================================================================================
+SUMMARY BY EXPERIMENT
+================================================================================
+
+  base          n=21  EM=0.05  PM=0.29  avg_iters=4.7
+  baseline      n=8  EM=0.50  PM=0.50  avg_iters=1.0
+  exp1          n=19  EM=0.21  PM=0.26  avg_iters=7.7

@@ -1,0 +1,178 @@
+[
+  {
+    "sample_idx": 11,
+    "experiment": "base",
+    "max_depth": 1,
+    "max_iterations": 10,
+    "question": "Document: Dobrodo\\u0161ao u Klub Tour was concert tour of Croatian pop singer Severina Vu\\u010dkovi\\u0107 . It was launched to support of her eleventh studio album `` Dobrodo\\u0161ao u klub '' ( 2013 ) . It was officially announced in February 2013 , with dates for Balkan venues revealed . The tour <event> began </event> on 23 March 2013 in Rijeka , Croatia . The tour was also included some festival concerts . On 29 June 2013 , Her tour was a part of `` Celebration of Croatia 's accession to the European Union '' and Severina will perform in the `` Strumica Open Festival '' , Macedonia on 18 July 2013 .\\n\\nQuestion: Only considering the given document, what is the event type of began?",
+    "prediction": "H",
+    "ground_truth": "D",
+    "correct": false,
+    "log_file": "sample11_base_d1_i10"
+  },
+  {
+    "sample_idx": 11,
+    "experiment": "exp1",
+    "max_depth": 1,
+    "max_iterations": 30,
+    "question": "Document: Dobrodo\\u0161ao u Klub Tour was concert tour of Croatian pop singer Severina Vu\\u010dkovi\\u0107 . It was launched to support of her eleventh studio album `` Dobrodo\\u0161ao u klub '' ( 2013 ) . It was officially announced in February 2013 , with dates for Balkan venues revealed . The tour <event> began </event> on 23 March 2013 in Rijeka , Croatia . The tour was also included some festival concerts . On 29 June 2013 , Her tour was a part of `` Celebration of Croatia 's accession to the European Union '' and Severina will perform in the `` Strumica Open Festival '' , Macedonia on 18 July 2013 .\\n\\nQuestion: Only considering the given document, what is the event type of began?",
+    "prediction": "B",
+    "ground_truth": "D",
+    "correct": false,
+    "log_file": "sample11_exp1_d1_i30"
+  },
+  {
+    "sample_idx": 17,
+    "experiment": "base",
+    "max_depth": 1,
+    "max_iterations": 10,
+    "question": "Narrives: 1. ['During a car ride, tensions rise between Grant and his wife as she expresses frustration over his dedication to their daughter Sophie, leading to a heated moment that culminates in an intimate kiss where Grant reaffirms his love for her.']\\n2. [\\\"The narrator sends Paige to a salon for a makeover and provides her with new clothes, hoping to catch Grant's attention.\\\"]\\n3. ['The author, A. R. Torre (pseudonym for Alessandra Torre), thanks her partner Joe for his support and understanding during her writing process.']\\n4. ['The narrator is interrupted by her husband, Grant, while planning to recreate the Folcrum Party murders using fake evidence to implicate the original killer and divert attention for personal motives.']\\n\\nQuery: Considering the given book and narratives, Which order of the narratives in the following options is correct?\"",
+    "prediction": "H",
+    "ground_truth": "A",
+    "correct": false,
+    "log_file": "sample17_base_d1_i10"
+  },
+  {
+    "sample_idx": 17,
+    "experiment": "exp1",
+    "max_depth": 1,
+    "max_iterations": 30,
+    "question": "Narrives: 1. ['During a car ride, tensions rise between Grant and his wife as she expresses frustration over his dedication to their daughter Sophie, leading to a heated moment that culminates in an intimate kiss where Grant reaffirms his love for her.']\\n2. [\\\"The narrator sends Paige to a salon for a makeover and provides her with new clothes, hoping to catch Grant's attention.\\\"]\\n3. ['The author, A. R. Torre (pseudonym for Alessandra Torre), thanks her partner Joe for his support and understanding during her writing process.']\\n4. ['The narrator is interrupted by her husband, Grant, while planning to recreate the Folcrum Party murders using fake evidence to implicate the original killer and divert attention for personal motives.']\\n\\nQuery: Considering the given book and narratives, Which order of the narratives in the following options is correct?\"",
+    "prediction": "T",
+    "ground_truth": "A",
+    "correct": false,
+    "log_file": "sample17_exp1_d1_i30"
+  },
+  {
+    "sample_idx": 29,
+    "experiment": "base",
+    "max_depth": 1,
+    "max_iterations": 10,
+    "question": "Document: The series ended after twelve episodes aired with the thirteenth being only available on iTunes , Amazon .com , and Netflix . \\n\\nQuestion: Only considering the given document, what is the entity type of iTunes?",
+    "prediction": "T",
+    "ground_truth": "A",
+    "correct": false,
+    "log_file": "sample29_base_d1_i10"
+  },
+  {
+    "sample_idx": 29,
+    "experiment": "exp1",
+    "max_depth": 1,
+    "max_iterations": 30,
+    "question": "Document: The series ended after twelve episodes aired with the thirteenth being only available on iTunes , Amazon .com , and Netflix . \\n\\nQuestion: Only considering the given document, what is the entity type of iTunes?",
+    "prediction": "T",
+    "ground_truth": "A",
+    "correct": false,
+    "log_file": "sample29_exp1_d1_i30"
+  },
+  {
+    "sample_idx": 36,
+    "experiment": "base",
+    "max_depth": 1,
+    "max_iterations": 10,
+    "question": "Please try to deduce the true story based on the evidence currently known. In your deduction, how did the murderer leave the crime scene without getting wet in the rain?",
+    "prediction": "F",
+    "ground_truth": "D",
+    "correct": false,
+    "log_file": "sample36_base_d1_i10"
+  },
+  {
+    "sample_idx": 36,
+    "experiment": "exp1",
+    "max_depth": 1,
+    "max_iterations": 30,
+    "question": "Please try to deduce the true story based on the evidence currently known. In your deduction, how did the murderer leave the crime scene without getting wet in the rain?",
+    "prediction": "F",
+    "ground_truth": "D",
+    "correct": false,
+    "log_file": "sample36_exp1_d1_i30"
+  },
+  {
+    "sample_idx": 42,
+    "experiment": "base",
+    "max_depth": 1,
+    "max_iterations": 10,
+    "question": "Document:  entity0 Paulette Noizeux ( entity1 30 May 1887 \\u2013 entity2 9 April 1971 ) was a entity3 French stage and film actress who began her career on the stages of entity3 France and entity4 New York in entity5 the 1910s . Her career spanned entity6 sixty years . Born entity0 Marie - Paule C\\u0153ur\\u00e9 in entity7 Saint - Omer , entity8 Pas - de - Calais , entity3 France , entity0 Paulette Noizeux made her film debut in the entity9 1911 entity10 Abel Gance - directed film short entity11 La Digue , opposite actors entity12 Jean Renoir and entity13 Jean Toulout . The film is notable for being entity10 Gance 's directoral debut . She would go on to have a prolific stage career in her native entity3 France , as well as appearing on entity14 Broadway in several plays from entity15 1917 to entity16 1918 . entity0 Noizeux was married to stage and screen actor entity17 No\\u00ebl Roquevert . Her last film appearance was a small part in the entity18 1968 entity19 Norbert Terry - directed entity20 Swiss / entity3 French joint film production entity21 Jeunes filles bien ... pour tous rapports ( entity22 English release title : entity21 The Sexy Dozen ) , in which her husband also appeared . entity0 Paulette Noizeux died in entity23 Paris in entity24 1971 at the age of entity25 83 .\\n\\nQuestion: Only considering the given document, what is the relation type between entity0 and entity1?",
+    "prediction": "I",
+    "ground_truth": "C",
+    "correct": false,
+    "log_file": "sample42_base_d1_i10"
+  },
+  {
+    "sample_idx": 42,
+    "experiment": "exp1",
+    "max_depth": 1,
+    "max_iterations": 30,
+    "question": "Document:  entity0 Paulette Noizeux ( entity1 30 May 1887 \\u2013 entity2 9 April 1971 ) was a entity3 French stage and film actress who began her career on the stages of entity3 France and entity4 New York in entity5 the 1910s . Her career spanned entity6 sixty years . Born entity0 Marie - Paule C\\u0153ur\\u00e9 in entity7 Saint - Omer , entity8 Pas - de - Calais , entity3 France , entity0 Paulette Noizeux made her film debut in the entity9 1911 entity10 Abel Gance - directed film short entity11 La Digue , opposite actors entity12 Jean Renoir and entity13 Jean Toulout . The film is notable for being entity10 Gance 's directoral debut . She would go on to have a prolific stage career in her native entity3 France , as well as appearing on entity14 Broadway in several plays from entity15 1917 to entity16 1918 . entity0 Noizeux was married to stage and screen actor entity17 No\\u00ebl Roquevert . Her last film appearance was a small part in the entity18 1968 entity19 Norbert Terry - directed entity20 Swiss / entity3 French joint film production entity21 Jeunes filles bien ... pour tous rapports ( entity22 English release title : entity21 The Sexy Dozen ) , in which her husband also appeared . entity0 Paulette Noizeux died in entity23 Paris in entity24 1971 at the age of entity25 83 .\\n\\nQuestion: Only considering the given document, what is the relation type between entity0 and entity1?",
+    "prediction": "B",
+    "ground_truth": "C",
+    "correct": false,
+    "log_file": "sample42_exp1_d1_i30"
+  },
+  {
+    "sample_idx": 44,
+    "experiment": "base",
+    "max_depth": 1,
+    "max_iterations": 10,
+    "question": "Which news program in the TV comedy genre ran for the fewest seasons?",
+    "prediction": "F",
+    "ground_truth": "A",
+    "correct": false,
+    "log_file": "sample44_base_d1_i10"
+  },
+  {
+    "sample_idx": 44,
+    "experiment": "exp1",
+    "max_depth": 1,
+    "max_iterations": 30,
+    "question": "Which news program in the TV comedy genre ran for the fewest seasons?",
+    "prediction": "F",
+    "ground_truth": "A",
+    "correct": false,
+    "log_file": "sample44_exp1_d1_i30"
+  },
+  {
+    "sample_idx": 50,
+    "experiment": "base",
+    "max_depth": 1,
+    "max_iterations": 10,
+    "question": "The IEA\u2019s 2024 World Energy Investment report highlights a significant imbalance in clean energy investments between advanced economies and EMDEs (excluding China), with the latter receiving only around 15% of global clean energy spending. In light of this, assume the following conditions:\n\nThe cost of capital in EMDEs is on average twice as high as in advanced economies.\nDevelopment Finance Institutions (DFIs) have limited capacity to mobilize private capital at the scale required to meet COP28 goals.\nGovernments in EMDEs face rising public debt levels, making large-scale public borrowing for clean energy investments politically and economically untenable.\nGiven these constraints, which combination of policies would best optimize the mobilization of private capital, reduce systemic financial risks, and ensure alignment with the energy transition targets outlined in the IEA\u2019s Net Zero Emissions by 2050 Scenario (NZE Scenario)?",
+    "prediction": "F",
+    "ground_truth": "D",
+    "correct": false,
+    "log_file": "sample50_base_d1_i10"
+  },
+  {
+    "sample_idx": 50,
+    "experiment": "exp1",
+    "max_depth": 1,
+    "max_iterations": 30,
+    "question": "The IEA\u2019s 2024 World Energy Investment report highlights a significant imbalance in clean energy investments between advanced economies and EMDEs (excluding China), with the latter receiving only around 15% of global clean energy spending. In light of this, assume the following conditions:\n\nThe cost of capital in EMDEs is on average twice as high as in advanced economies.\nDevelopment Finance Institutions (DFIs) have limited capacity to mobilize private capital at the scale required to meet COP28 goals.\nGovernments in EMDEs face rising public debt levels, making large-scale public borrowing for clean energy investments politically and economically untenable.\nGiven these constraints, which combination of policies would best optimize the mobilization of private capital, reduce systemic financial risks, and ensure alignment with the energy transition targets outlined in the IEA\u2019s Net Zero Emissions by 2050 Scenario (NZE Scenario)?",
+    "prediction": "K",
+    "ground_truth": "D",
+    "correct": false,
+    "log_file": "sample50_exp1_d1_i30"
+  },
+  {
+    "sample_idx": 61,
+    "experiment": "base",
+    "max_depth": 1,
+    "max_iterations": 10,
+    "question": "In Agatha Christie's \"The Murder on the Links,\" which statement is true?",
+    "prediction": "D",
+    "ground_truth": "D",
+    "correct": true,
+    "log_file": "sample61_base_d1_i10"
+  },
+  {
+    "sample_idx": 61,
+    "experiment": "exp1",
+    "max_depth": 1,
+    "max_iterations": 30,
+    "question": "In Agatha Christie's \"The Murder on the Links,\" which statement is true?",
+    "prediction": "B",
+    "ground_truth": "D",
+    "correct": false,
+    "log_file": "sample61_exp1_d1_i30"
+  }
+]
