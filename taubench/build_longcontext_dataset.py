@@ -98,8 +98,50 @@ def turns_token_count(turns: list[dict]) -> int:
 # Load retail filler pool
 # ---------------------------------------------------------------------------
 
+def _sanitize_filler_turn(turn: dict) -> dict | None:
+    """
+    Strip ground-truth key values and system artifacts from a filler turn.
+
+    - system turns: dropped entirely (role=system carries task instructions)
+    - tool turns: drop `name` and `tool_call_id` (name reveals which tool = ground truth)
+    - assistant tool-call-only turns: dropped (content is null; only payload is the
+      action name/args, which is ground truth for that intermediate step)
+    - assistant turns with content: keep content, drop tool_calls
+    - user turns: strip ###STOP### (tau-bench task-completion signal); drop if empty
+    """
+    role = turn.get("role")
+
+    if role == "system":
+        return None
+
+    if role == "tool":
+        return {"role": "tool", "content": turn.get("content", "")}
+
+    if role == "assistant":
+        tool_calls = turn.get("tool_calls")
+        if tool_calls:
+            content = turn.get("content")
+            if not content:
+                return None
+            return {"role": "assistant", "content": content}
+        return {"role": "assistant", "content": turn.get("content", "")}
+
+    if role == "user":
+        content = (turn.get("content") or "").replace("###STOP###", "").strip()
+        if not content:
+            return None
+        return {"role": "user", "content": content}
+
+    return None
+
+
 def load_filler_pool(retail_path: Path) -> list[dict]:
-    """All non-system turns from reward=1.0 retail trajectories."""
+    """
+    Non-system turns from reward=1.0 retail trajectories, sanitized to remove
+    ground-truth key values (tool names, function call details) and system
+    artifacts (###STOP### markers). The trajectory-level `info` dict (which
+    contains explicit ground-truth actions/outputs) is never included.
+    """
     with open(retail_path) as f:
         data = json.load(f)
     turns = []
@@ -107,8 +149,9 @@ def load_filler_pool(retail_path: Path) -> list[dict]:
         if traj.get("reward") != 1.0:
             continue
         for turn in traj.get("traj", []):
-            if turn.get("role") != "system":
-                turns.append(turn)
+            sanitized = _sanitize_filler_turn(turn)
+            if sanitized is not None:
+                turns.append(sanitized)
     return turns
 
 

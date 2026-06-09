@@ -1,1 +1,0 @@
-{"type": "metadata", "timestamp": "2026-06-02T15:32:33.680765", "root_model": "gpt-5", "max_depth": 1, "max_iterations": 10, "backend": "azure_openai", "backend_kwargs": {"azure_endpoint": "https://student-hub-05.openai.azure.com", "api_version": "2024-02-01", "model_name": "gpt-5"}, "environment_type": "local", "environment_kwargs": {}, "other_backends": null}
