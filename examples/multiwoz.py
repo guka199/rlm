@@ -1,3 +1,4 @@
+import itertools
 import json
 import os
 import random
@@ -41,13 +42,25 @@ def build_filler_context(
     target_tokens: int,
     position: Literal["beginning", "middle", "end"],
     rng: random.Random | None = None,
+    gold_percent: float | None = None,
 ) -> str:
     if rng is None:
         rng = random.Random()
 
     target_chars = target_tokens * CHARS_PER_TOKEN
-    gold_chars = len(gold_context)
-    filler_budget = target_chars - gold_chars
+
+    if gold_percent is not None:
+        gold_target_chars = int(target_chars * gold_percent)
+        gold_parts = []
+        accumulated_gold = 0
+        while accumulated_gold < gold_target_chars:
+            gold_parts.append(gold_context)
+            accumulated_gold += len(gold_context) + len(CONVERSATION_SEPARATOR)
+        gold_block = CONVERSATION_SEPARATOR.join(gold_parts)
+    else:
+        gold_block = gold_context
+
+    filler_budget = target_chars - len(gold_block)
 
     gold_service_set = set(gold_services)
     candidates = [
@@ -59,19 +72,19 @@ def build_filler_context(
 
     filler_convos = []
     accumulated = 0
-    for record in candidates:
+    for record in itertools.cycle(candidates):
         if accumulated >= filler_budget:
             break
         filler_convos.append(record["context"])
         accumulated += len(record["context"]) + len(CONVERSATION_SEPARATOR)
 
     if position == "beginning":
-        parts = [gold_context] + filler_convos
+        parts = [gold_block] + filler_convos
     elif position == "end":
-        parts = filler_convos + [gold_context]
+        parts = filler_convos + [gold_block]
     else:  # middle
         mid = len(filler_convos) // 2
-        parts = filler_convos[:mid] + [gold_context] + filler_convos[mid:]
+        parts = filler_convos[:mid] + [gold_block] + filler_convos[mid:]
 
     return CONVERSATION_SEPARATOR.join(parts)
 
@@ -118,6 +131,7 @@ def build_expanded_datasets(
     output_dir: str,
     target_tokens: list[int] | None = None,
     positions: list[Literal["beginning", "middle", "end"]] | None = None,
+    gold_percentages: list[float] | None = None,
     seed: int = 42,
 ) -> None:
     if target_tokens is None:
@@ -132,31 +146,74 @@ def build_expanded_datasets(
 
     os.makedirs(output_dir, exist_ok=True)
 
+    percentages = gold_percentages if gold_percentages is not None else [None]
+
     for tokens in target_tokens:
-        for position in positions:
-            filename = f"multiwoz_qa_{tokens // 1000}k_{position}.jsonl"
-            out_path = os.path.join(output_dir, filename)
-            rng = random.Random(seed)
-            with open(out_path, "w") as out:
-                for record in gold_records:
-                    expanded_context = build_filler_context(
-                        gold_context=record["context"],
-                        gold_dialogue_id=record["dialogue_id"],
-                        gold_services=record.get("services", []),
-                        filler_pool=filler_pool,
-                        target_tokens=tokens,
-                        position=position,
-                        rng=rng,
-                    )
-                    out.write(json.dumps({
-                        "dialogue_id": record["dialogue_id"],
-                        "question": record["question"],
-                        "answer": record["answer"],
-                        "context": expanded_context,
-                        "target_tokens": tokens,
-                        "position": position,
-                    }) + "\n")
-            print(f"Wrote {len(gold_records)} records to {out_path}")
+        for gold_pct in percentages:
+            for position in positions:
+                if gold_pct is None:
+                    filename = f"multiwoz_qa_{tokens // 1000}k_{position}.jsonl"
+                else:
+                    pct_label = f"gold{int(gold_pct * 100)}pct"
+                    filename = f"multiwoz_qa_{tokens // 1000}k_{pct_label}_{position}.jsonl"
+                out_path = os.path.join(output_dir, filename)
+                rng = random.Random(seed)
+                with open(out_path, "w") as out:
+                    for record in gold_records:
+                        expanded_context = build_filler_context(
+                            gold_context=record["context"],
+                            gold_dialogue_id=record["dialogue_id"],
+                            gold_services=record.get("services", []),
+                            filler_pool=filler_pool,
+                            target_tokens=tokens,
+                            position=position,
+                            rng=rng,
+                            gold_percent=gold_pct,
+                        )
+                        out.write(json.dumps({
+                            "dialogue_id": record["dialogue_id"],
+                            "question": record["question"],
+                            "answer": record["answer"],
+                            "context": expanded_context,
+                            "target_tokens": tokens,
+                            "position": position,
+                            "gold_percent": gold_pct,
+                        }) + "\n")
+                print(f"Wrote {len(gold_records)} records to {out_path}")
+
+
+def sample_hotel_dialogues(
+    output_path: str,
+    n: int = 30,
+    seed: int = 42,
+    dataset=None,
+) -> None:
+    if dataset is None:
+        dataset = load_dataset("pfb30/multi_woz_v22", trust_remote_code=True)
+
+    candidates = []
+    for split in ["train", "validation", "test"]:
+        for dialogue in dataset[split]:
+            if "hotel" in dialogue["services"]:
+                candidates.append(dialogue)
+
+    rng = random.Random(seed)
+    rng.shuffle(candidates)
+    selected = candidates[:n]
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    with open(output_path, "w") as out:
+        for dialogue in selected:
+            out.write(json.dumps({
+                "dialogue_id": dialogue["dialogue_id"],
+                "context": flatten_dialogue(dialogue["turns"]),
+                "services": dialogue["services"],
+                "question": "",
+                "answer": "",
+            }) + "\n")
+
+    print(f"Wrote {len(selected)} hotel dialogues to {output_path}")
 
 
 def main():
@@ -174,21 +231,9 @@ def main():
 
 
 if __name__ == "__main__":
-    gold_path = os.path.join(os.path.dirname(__file__), "../data/multiwoz_qa.jsonl")
-    filler_path = os.path.join(os.path.dirname(__file__), "../data/multiwoz_filler.jsonl")
+    gold_path_30 = os.path.join(os.path.dirname(__file__), "../data/multiwoz_qa_30.jsonl")
+    filler_path_30 = os.path.join(os.path.dirname(__file__), "../data/multiwoz_filler_30.jsonl")
     output_dir = os.path.join(os.path.dirname(__file__), "../data")
 
-    print("Loading HuggingFace dataset...")
-    dataset = load_dataset("pfb30/multi_woz_v22", trust_remote_code=True)
-
-    print("Building id→services lookup...")
-    id_to_services = build_id_to_services(dataset)
-
-    print("Rebuilding filler JSONL with services...")
-    build_filler_jsonl(gold_path, filler_path, dataset=dataset)
-
-    print("Enriching gold records with services...")
-    enrich_gold_with_services(gold_path, id_to_services)
-
-    print("Rebuilding expanded datasets...")
-    build_expanded_datasets(gold_path, filler_path, output_dir)
+    print("Rebuilding expanded datasets (512k, 30 samples)...")
+    build_expanded_datasets(gold_path_30, filler_path_30, output_dir, target_tokens=[512000])

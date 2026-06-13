@@ -32,13 +32,13 @@ else:
             "model_name": "gpt-5",
         },
         environment="local",
-        max_iterations=30,
+        max_iterations=10,
         max_depth = 1,
         logger=RLMLogger(log_dir="./mutlti-logs"),
         verbose=True,
     )
 
-jsonl_path = os.path.join(os.path.dirname(__file__), "../data/multiwoz_qa_8k_middle.jsonl")
+jsonl_path = os.path.join(os.path.dirname(__file__), "../data/multiwoz_qa_256k_gold1_beginning.jsonl")
 
 with open(jsonl_path) as f:
     records = [json.loads(line) for line in f if line.strip()]
@@ -53,4 +53,4 @@ for record in records:
     print(f"Question:        {record['question']}")
     print(f"Model answer:    {result.response}")
     print(f"Expected answer: {record['answer']}")
-    # print(prompt)
+    # print(prompt) 
