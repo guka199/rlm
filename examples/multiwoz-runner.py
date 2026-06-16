@@ -8,6 +8,14 @@ from rlm.logger import RLMLogger
 
 load_dotenv()
 
+max_iterations = 10
+context_size_k = 8
+gold_label = "gold1"
+position = "beginning"
+
+file_name = f"rlm_iter{max_iterations}_{context_size_k}k_{gold_label}_{position}"
+jsonl_path = os.path.join(os.path.dirname(__file__), f"../data/multiwoz_{context_size_k}k_{gold_label}_{position}_30.jsonl")
+
 if False:  # GPT 4o if true and gpt 5 nano otherwise
     rlm = RLM(
         backend="azure_openai",
@@ -18,8 +26,8 @@ if False:  # GPT 4o if true and gpt 5 nano otherwise
             "model_name": "gpt-4o",
         },
         environment="local",
-        max_iterations=10,
-        logger=RLMLogger(log_dir="./logs"),
+        max_iterations=max_iterations,
+        logger=RLMLogger(log_dir="./logs", file_name=file_name),
         verbose=True,
     )
 else:
@@ -32,13 +40,11 @@ else:
             "model_name": "gpt-5",
         },
         environment="local",
-        max_iterations=10,
-        max_depth = 1,
-        logger=RLMLogger(log_dir="./mutlti-logs"),
+        max_iterations=max_iterations,
+        max_depth=1,
+        logger=RLMLogger(log_dir="./mutlti-logs", file_name=file_name),
         verbose=True,
     )
-
-jsonl_path = os.path.join(os.path.dirname(__file__), "../data/multiwoz_qa_256k_gold1_beginning.jsonl")
 
 with open(jsonl_path) as f:
     records = [json.loads(line) for line in f if line.strip()]
@@ -53,4 +59,6 @@ for record in records:
     print(f"Question:        {record['question']}")
     print(f"Model answer:    {result.response}")
     print(f"Expected answer: {record['answer']}")
-    # print(prompt) 
+    # print(prompt)
+
+print(f"\nDone. Log written to: {rlm.logger.log_file_path}")
