@@ -1,5 +1,6 @@
 import itertools
 import json
+import math
 import os
 import random
 from typing import Literal
@@ -40,7 +41,7 @@ def build_filler_context(
     gold_services: list[str],
     filler_pool: list[dict],
     target_tokens: int,
-    position: Literal["beginning", "middle", "end"],
+    position: Literal["beginning", "middle", "end", "random"],
     rng: random.Random | None = None,
     gold_percent: float | None = None,
 ) -> str:
@@ -82,9 +83,34 @@ def build_filler_context(
         parts = [gold_block] + filler_convos
     elif position == "end":
         parts = filler_convos + [gold_block]
-    else:  # middle
+    elif position == "middle":
         mid = len(filler_convos) // 2
         parts = filler_convos[:mid] + [gold_block] + filler_convos[mid:]
+    else:  # random
+        chunk_size_chars = 1000 * CHARS_PER_TOKEN
+        gold_chunks = math.ceil(len(gold_block) / chunk_size_chars)
+        total_chunks = target_tokens // 1000
+        max_start = max(0, total_chunks - gold_chunks)
+        start_chunk = rng.randint(0, max_start)
+
+        before_budget = start_chunk * chunk_size_chars
+        after_budget = target_chars - before_budget - len(gold_block)
+
+        filler_before, acc = [], 0
+        for record in itertools.cycle(candidates):
+            if acc >= before_budget:
+                break
+            filler_before.append(record["context"])
+            acc += len(record["context"]) + len(CONVERSATION_SEPARATOR)
+
+        filler_after, acc = [], 0
+        for record in itertools.cycle(candidates):
+            if acc >= after_budget:
+                break
+            filler_after.append(record["context"])
+            acc += len(record["context"]) + len(CONVERSATION_SEPARATOR)
+
+        parts = filler_before + [gold_block] + filler_after
 
     return CONVERSATION_SEPARATOR.join(parts)
 
@@ -151,11 +177,8 @@ def build_expanded_datasets(
     for tokens in target_tokens:
         for gold_pct in percentages:
             for position in positions:
-                if gold_pct is None:
-                    filename = f"multiwoz_qa_{tokens // 1000}k_{position}.jsonl"
-                else:
-                    pct_label = f"gold{int(gold_pct * 100)}pct"
-                    filename = f"multiwoz_qa_{tokens // 1000}k_{pct_label}_{position}.jsonl"
+                gold_label = "gold1" if gold_pct is None else f"gold{int(gold_pct * 100)}pct"
+                filename = f"multiwoz_{tokens // 1000}k_{gold_label}_{position}_30.jsonl"
                 out_path = os.path.join(output_dir, filename)
                 rng = random.Random(seed)
                 with open(out_path, "w") as out:
@@ -235,5 +258,11 @@ if __name__ == "__main__":
     filler_path_30 = os.path.join(os.path.dirname(__file__), "../data/multiwoz_filler_30.jsonl")
     output_dir = os.path.join(os.path.dirname(__file__), "../data")
 
-    print("Rebuilding expanded datasets (512k, 30 samples)...")
-    build_expanded_datasets(gold_path_30, filler_path_30, output_dir, target_tokens=[512000])
+    print("Building expanded datasets (66k gold10pct, 30 samples)...")
+    build_expanded_datasets(
+        gold_path_30, filler_path_30, output_dir,
+        target_tokens=[66000],
+        positions=["beginning", "middle", "end", "random"],
+        gold_percentages=[0.10],
+    )
+
