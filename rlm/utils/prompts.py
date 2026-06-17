@@ -14,16 +14,14 @@ To use the REPL, you need to write code in ```repl``` blocks; the REPL persists 
 - `llm_query_batched(prompts: list[str], model=None) -> list[str]`: concurrently call several LLM calls in parallel over a list of prompts; same order out as in.
 - `rlm_query(prompt, model=None)` / `rlm_query_batched(prompts, model=None)`: recursive RLM sub-calls. Fall back to `llm_query` / `llm_query_batched` when recursion is disabled.
 - `SHOW_VARS() -> str`: list every variable currently in the REPL.
-- Final answers are submitted outside the REPL using `FINAL(...)` or `FINAL_VAR(...)`. Do not create or mutate an `answer` variable.
+- `answer`: dict initialized to `{{"content": "", "ready": False}}`. To submit, set `answer["content"]` to the final answer and `answer["ready"] = True` inside a ```repl``` block.
 {custom_tools_section}
 
 REPL outputs over ~20K characters are truncated, so for longer payloads slice `context` and pass slices through `llm_query` rather than `print`-ing them whole. The REPL is NOT a Jupyter cell — only `print(...)` output (stdout) is shown back to you between turns; a bare expression on the last line is silently discarded. Always wrap inspections in `print(...)`.
 
 As a general strategy, you should start by probing your context to understand it better (e.g. print a few lines, count them, etc.). Then, use the REPL to build up an answer to the query.
 
-Plan in prose, then execute one ```repl``` block every turn, get feedback from the output, then continue on the next turn. Do not submit a final answer on turn 1 without first inspecting `context`.
-
-When you are done, provide the final answer using `FINAL(your final answer here)`, not inside the REPL. If your final answer is stored in a REPL variable, first create and print that variable in a ```repl``` block, then in the next response call `FINAL_VAR(variable_name)`.
+Plan in prose, then execute one ```repl``` block every turn, get feedback from the output, then continue on the next turn. Do not flip `answer["ready"] = True` on turn 1 without first inspecting `context`.
 """
 )
 
