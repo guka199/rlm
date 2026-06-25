@@ -1,64 +1,108 @@
+import argparse
 import json
 import os
+from pathlib import Path
+from typing import Any
 
+import yaml
 from dotenv import load_dotenv
 
 from rlm import RLM
 from rlm.logger import RLMLogger
 
-load_dotenv()
+BACKEND_ALIASES = {"azure": "azure_openai"}
+REQUIRED_CONFIG_KEYS = {
+    "model",
+    "max_iterations",
+    "data_file",
+    "output_dir",
+    "backend",
+}
 
-max_iterations = 10
-context_size_k = 8
-gold_label = "gold1"
-position = "beginning"
 
-file_name = f"rlm_iter{max_iterations}_{context_size_k}k_{gold_label}_{position}"
-jsonl_path = os.path.join(os.path.dirname(__file__), f"../data/multiwoz_{context_size_k}k_{gold_label}_{position}_30.jsonl")
+def load_config(path: Path) -> dict[str, Any]:
+    with path.open(encoding="utf-8") as file:
+        config = yaml.safe_load(file)
+    if not isinstance(config, dict):
+        raise ValueError(f"Config must be a YAML mapping: {path}")
 
-if False:  # GPT 4o if true and gpt 5 nano otherwise
-    rlm = RLM(
-        backend="azure_openai",
-        backend_kwargs={
-            "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
-            "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
-            "api_version": os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
-            "model_name": "gpt-4o",
-        },
-        environment="local",
-        max_iterations=max_iterations,
-        logger=RLMLogger(log_dir="./logs", file_name=file_name),
-        verbose=True,
+    missing = REQUIRED_CONFIG_KEYS - config.keys()
+    if missing:
+        raise ValueError(f"Config is missing required keys: {sorted(missing)}")
+    return config
+
+
+def make_rlm(config: dict[str, Any], config_path: Path) -> RLM:
+    backend = BACKEND_ALIASES.get(str(config["backend"]), str(config["backend"]))
+    data_file = resolve_path(str(config["data_file"]), config_path)
+    output_dir = resolve_path(str(config["output_dir"]), config_path)
+    file_name = f"rlm_{Path(data_file).stem}_{config['model']}_iter{config['max_iterations']}"
+
+    backend_kwargs: dict[str, Any] = {"model_name": str(config["model"])}
+    if backend == "azure_openai":
+        backend_kwargs.update(
+            {
+                "api_key": required_env("AZURE_OPENAI_API_KEY"),
+                "azure_endpoint": required_env("AZURE_OPENAI_ENDPOINT"),
+                "api_version": os.getenv(
+                    "AZURE_OPENAI_API_VERSION",
+                    str(config.get("api_version", "2024-02-15-preview")),
+                ),
+            }
+        )
+
+    return RLM(
+        backend=backend,
+        backend_kwargs=backend_kwargs,
+        environment=str(config.get("environment", "local")),
+        max_iterations=int(config["max_iterations"]),
+        max_depth=int(config.get("max_depth", 1)),
+        logger=RLMLogger(log_dir=output_dir, file_name=file_name),
+        verbose=bool(config.get("verbose", True)),
     )
-else:
-    rlm = RLM(
-        backend="azure_openai",
-        backend_kwargs={
-            "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
-            "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
-            "api_version": os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
-            "model_name": "gpt-5",
-        },
-        environment="local",
-        max_iterations=max_iterations,
-        max_depth=1,
-        logger=RLMLogger(log_dir="./mutlti-logs", file_name=file_name),
-        verbose=True,
-    )
 
-with open(jsonl_path) as f:
-    records = [json.loads(line) for line in f if line.strip()]
 
-for record in records:
-    result = rlm.completion(
-        prompt=record['context'],
-        root_prompt=record['question']
-    )
+def resolve_path(value: str, config_path: Path) -> str:
+    path = Path(value)
+    if not path.is_absolute():
+        path = config_path.parent / path
+    return str(path.resolve())
 
-    print(f"\n--- {record['dialogue_id']} ---")
-    print(f"Question:        {record['question']}")
-    print(f"Model answer:    {result.response}")
-    print(f"Expected answer: {record['answer']}")
-    # print(prompt)
 
-print(f"\nDone. Log written to: {rlm.logger.log_file_path}")
+def required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise ValueError(f"Missing required environment variable: {name}")
+    return value
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run MultiWOZ RLM evaluation.")
+    parser.add_argument("--config", type=Path, default=Path("config.yaml"))
+    args = parser.parse_args()
+
+    load_dotenv()
+    config_path = args.config.resolve()
+    config = load_config(config_path)
+    data_file = resolve_path(str(config["data_file"]), config_path)
+    rlm = make_rlm(config, config_path)
+
+    with open(data_file, encoding="utf-8") as file:
+        records = [json.loads(line) for line in file if line.strip()]
+
+    for record in records:
+        result = rlm.completion(
+            prompt=record["context"],
+            root_prompt=record["question"],
+        )
+
+        print(f"\n--- {record['dialogue_id']} ---")
+        print(f"Question:        {record['question']}")
+        print(f"Model answer:    {result.response}")
+        print(f"Expected answer: {record['answer']}")
+
+    print(f"\nDone. Log written to: {rlm.logger.log_file_path}")
+
+
+if __name__ == "__main__":
+    main()

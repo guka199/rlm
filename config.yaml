@@ -1,0 +1,8 @@
+model: gpt-5.1
+max_iterations: 30
+max_depth: 1
+data_file: /app/data/multiwoz_qa_30.jsonl
+output_dir: /app/logs
+backend: azure
+api_version: 2024-02-15-preview
+verbose: true
